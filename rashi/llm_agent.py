@@ -9,7 +9,10 @@ FREE_BASE_URLS = {
     "respan": "https://gateway.respan.ai/v1",
     "explabs": "https://api.experientiallabs.ai/v1",
     "openrouter": "https://openrouter.ai/api/v1",
+    "kenari": "https://kenari.id/v1",
 }
+# Providers that also sell paid models: only these model ids are allowed (free ones).
+FREE_ONLY_MODELS = {"kenari": lambda m: m.endswith(":free") or m == "kenari-free"}
 FILE_RE = re.compile(r"FILE:\s*(\S+)\s*\n```[a-zA-Z0-9]*\n(.*?)```", re.S)
 SYSTEM = ("You are a careful engineer. Reply ONLY with files to write, each as:\n"
           "FILE: relative/path.py\n```python\n<full file content>\n```\n"
@@ -36,6 +39,9 @@ def safe_write(workdir, rel, content, protected=()):
 def make_agent(provider, model, api_key, protected=(), max_tokens=1500, client=None):
     if provider not in FREE_BASE_URLS:
         raise ValueError(f"provider not allowed: {provider}")
+    check = FREE_ONLY_MODELS.get(provider)
+    if check and not check(model):
+        raise ValueError(f"paid model refused on {provider}: {model}")
     client = client or OpenAI(base_url=FREE_BASE_URLS[provider], api_key=api_key, timeout=90)
 
     def agent(goal, feedback, workdir):
