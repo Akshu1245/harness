@@ -12,3 +12,9 @@ target/
 free-claude-code-ref/
 langfuse-skills/
 .simular*
+
+# Conversation Archives with Raw Credentials
+FULL_CONVERSATION_AND_PROMPTS_ARCHIVE.md
+all_user_prompts_raw.json
+build_full_conversation_archive.py
+extract_chat_history.py
