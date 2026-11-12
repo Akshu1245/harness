@@ -1,0 +1,42 @@
+{
+  "jev_decisions": {
+    "core_framework": {
+      "type": "choice",
+      "choice": "fastapi",
+      "probabilities": {
+        "fastapi": 1,
+        "django_ninja": 0,
+        "flask_gevent": 0
+      },
+      "confidence": 1
+    },
+    "job_state_store": {
+      "type": "choice",
+      "choice": "redis_streams",
+      "probabilities": {
+        "redis_streams": 0.75,
+        "rabbitmq": 0.03,
+        "kafka": 0.22
+      },
+      "confidence": 0.62
+    },
+    "orchestrator_pattern": {
+      "type": "choice",
+      "choice": "deterministic_graph",
+      "probabilities": {
+        "deterministic_graph": 1,
+        "autonomous_swarm": 0,
+        "hierarchical_subagents": 0
+      },
+      "confidence": 1
+    }
+  },
+  "model_proposals": {
+    "Qwen 3.8 MAX": "- **FastAPI async worker architecture:** Host a single `FastAPI` app with `async def` route handlers backed by `uvicorn` with `--workers` (CPU-bound) or threads (`--workers 1 --loop uvloop`), delegating heavy work to `asyncio` tasks via `await asyncio.create_task` for I/O-bound operations and `run_in_executor` only for blocking calls.\n- **Thread/process pool strategy:** Use a bounded `asyncio.Semaphore` to cap concurrent heavy tasks, with blocking CPU-bound logic offloaded to a `ProcessPoolExecutor(max_workers=n_cpu)` and I/O-bound blocking functions to a `ThreadPoolExecutor(max_workers=n_io)`, both reused across requests rather than recreated per request.\n- **Streaming endpoint design:** Return `StreamingResponse` with a custom async generator that `async yield`s `data=` chunks encoded as JSON Lines or SSE (`text/event-stream`), using `BackgroundTasks`/`asyncio` `asyncio.gather` to push partial results in real time without awaiting full payload completion.",
+    "Kimi K3": "**Context & Memory Strategy for RakshEx (1M-token sessions):**\n\n- **Hierarchical chunking with semantic anchors:** Split the 1M-token session into fixed-size windows (e.g., 8K\u201332K tokens), each tagged with a lightweight semantic fingerprint (vector embedding + keyword index) to enable fast, relevance-ranked retrieval instead of linear scanning.\n\n- **Tiered sliding-window cache:** Maintain an active short-term window (recent interactions, hot path) + a compressed long-term reservoir where older chunks are condensed via extractive summarization or latent-token pruning, preserving ~95%+ retrieval recall at 10\u201320% storage.\n\n- **Hybrid LRU + relevance decay eviction:** Combine recency-based LRU with a usage-frequency/similarity-weighted decay score to evict low-utility chunks early while protecting frequently-referenced or high-similarity anchors, ensuring sub-second lookups and bounded memory growth.",
+    "DeepSeek V4 Pro": "- **Untrusted prompt injection across agent handoffs** \u2014 RakshEx must treat all inter-agent messages as adversarial input, enforcing content validation and semantic isolation between agents rather than blindly passing unfiltered text.\n\n- **Privilege escalation through dynamic tool/capability delegation** \u2014 RakshEx must enforce least-privilege scoping per agent instance, with mandatory capability review gates and no inherited admin/tool access across agent boundaries.\n\n- **Lack of auditable execution provenance** \u2014 RakshEx must implement tamper-evident, structured logging of every reasoning step, tool call, and data movement between agents to enable forensic tracing of malicious or erroneous decision chains.",
+    "Claude Fable 5.2": "Error: 'NoneType' object has no attribute 'strip'",
+    "GPT-6 Luna": "- Define a unified REST/GraphQL contract with strict OpenAPI/Swagger specs, versioned schemas, and consistent error codes for a predictable, type-safe client interface.\n- Ship language-first SDKs (TypeScript, Python, Java) generated from the contract, featuring auto-injected auth, retry logic, streaming support, and comprehensive JSDoc/Tutorials.\n- Enforce DX quality via automated API linting, sandbox environments, interactive Playgrounds, and real-time changelog/Deprecation alerts to keep integrations stable.",
+    "Gemini 4 Carbon": ""
+  }
+}

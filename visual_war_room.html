@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>RakshEx · Enterprise Autonomous War Room</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-base: #030712;
+      --card-bg: rgba(17, 24, 39, 0.7);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(56, 189, 248, 0.3);
+      --accent-cyan: #38bdf8;
+      --accent-emerald: #34d399;
+      --accent-purple: #a855f7;
+      --accent-rose: #fb7185;
+      --accent-amber: #fbbf24;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-base);
+      color: #f3f4f6;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.05) 0%, transparent 40%),
+        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+    }
+
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* Aceternity UI Glow & Tracing Beam Border */
+    .bento-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bento-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04), transparent);
+      transition: 0.5s;
+      pointer-events: none;
+    }
+
+    .bento-card:hover::before {
+      left: 100%;
+    }
+
+    .bento-card:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      box-shadow: 0 8px 32px -4px rgba(56, 189, 248, 0.12);
+      transform: translateY(-1px);
+    }
+
+    /* Cult UI Glitch & Noise Pill */
+    .cult-badge {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    /* Hover.dev Spotlight Effect */
+    .spotlight-panel {
+      position: relative;
+    }
+    .spotlight-panel::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(56, 189, 248, 0.06), transparent 40%);
+      pointer-events: none;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.3); }
+
+    /* Pulse animation */
+    @keyframes subtlePulse {
+      0%, 100% { opacity: 0.8; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+    }
+    .status-live { animation: subtlePulse 2s infinite ease-in-out; }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden antialiased">
+
+  <!-- Astryx / Aceternity Top Command Bar -->
+  <header class="h-14 bg-gray-950/80 backdrop-blur-md border-b border-white/10 px-6 flex items-center justify-between shrink-0 z-30">
+    <div class="flex items-center space-x-4">
+      <div class="h-8 w-8 rounded-lg bg-gradient-to-tr from-sky-500 via-indigo-500 to-fuchsia-500 flex items-center justify-center font-bold text-white shadow-lg shadow-sky-500/25">
+        <i class="fa-solid fa-shield-halved text-sm"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2.5">
+          <span class="text-sm font-extrabold tracking-wider text-white">RAKSHEX</span>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded-full cult-badge text-sky-400 font-semibold tracking-wide">
+            ACTION CONTROL PLANE
+          </span>
+          <div class="flex items-center gap-1.5 text-[11px] text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 status-live shadow-[0_0_8px_#34d399]"></span>
+            <span>16 MODELS ACTIVE</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Telemetry Badges (Hover.dev Interactive) -->
+    <div class="hidden md:flex items-center space-x-6 text-xs mono">
+      <div class="flex items-center space-x-2 bg-white/[0.03] px-3 py-1.5 rounded-md border border-white/5">
+        <span class="text-gray-400">DECISION GATE:</span>
+        <span class="text-amber-400 font-semibold">Jev 1.13 Calibrated</span>
+      </div>
+      <div class="flex items-center space-x-2 bg-white/[0.03] px-3 py-1.5 rounded-md border border-white/5">
+        <span class="text-gray-400">CIRCUIT BREAKER:</span>
+        <span class="text-sky-400 font-medium">$0.00 / $5.00 DAILY CAP</span>
+      </div>
+      <div class="flex items-center space-x-2 bg-white/[0.03] px-3 py-1.5 rounded-md border border-white/5">
+        <span class="text-gray-400">MEMORY ENGINE:</span>
+        <span class="text-purple-400 font-medium">gbrain WAL Live</span>
+      </div>
+      <button onclick="dispatchSimulationPulse()" class="px-3.5 py-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white rounded-md text-xs font-semibold transition-all shadow-md shadow-sky-500/20 flex items-center gap-2 active:scale-95">
+        <i class="fa-solid fa-bolt text-xs"></i> Simulate Pulse
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Viewport Bento Grid -->
+  <div class="flex-1 flex overflow-hidden spotlight-panel" id="main-panel">
+
+    <!-- Left Column: The 16 Models Roster (Astryx Component Design) -->
+    <aside class="w-72 bg-gray-950/60 backdrop-blur-lg border-r border-white/10 flex flex-col shrink-0 z-20">
+      <div class="p-3.5 border-b border-white/10 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-network-wired text-sky-400 text-xs"></i>
+          <span class="text-xs font-bold text-gray-300 uppercase tracking-wider">Model Roster</span>
+        </div>
+        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-gray-400">16 / 16 READY</span>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-2.5 space-y-1.5 mono text-xs" id="roster-container">
+        <!-- Injected via JavaScript -->
+      </div>
+    </aside>
+
+    <!-- Center Stage: Dynamic Vector Graph Canvas + Live Adversarial Terminal -->
+    <main class="flex-1 flex flex-col relative overflow-hidden bg-gray-950/30">
+      
+      <!-- Top Bento Stage: Visual Topology & Moving Vector Particles -->
+      <div class="h-3/5 relative border-b border-white/10 flex flex-col">
+        <canvas id="topology-canvas" class="w-full h-full block"></canvas>
+        
+        <!-- Graph HUD Float Overlay (Aceternity Style) -->
+        <div class="absolute top-4 left-4 pointer-events-none space-y-1">
+          <div class="text-xs font-mono text-sky-400 font-semibold tracking-wide flex items-center gap-2">
+            <i class="fa-solid fa-satellite-dish"></i> REAL-TIME INTER-AGENT TELEMETRY
+          </div>
+          <div class="text-[11px] text-gray-400">Autonomous packet vectors stream live between Builders, Adversaries, and the Jev 1.13 Gate.</div>
+        </div>
+
+        <div class="absolute top-4 right-4 pointer-events-none flex gap-2 text-[10px] mono">
+          <span class="px-2.5 py-1 rounded-md bg-gray-900/90 border border-purple-500/30 text-purple-300 flex items-center gap-1.5 backdrop-blur-sm">
+            <span class="w-2 h-2 rounded-full bg-purple-400"></span> Builders
+          </span>
+          <span class="px-2.5 py-1 rounded-md bg-gray-900/90 border border-rose-500/30 text-rose-300 flex items-center gap-1.5 backdrop-blur-sm">
+            <span class="w-2 h-2 rounded-full bg-rose-400"></span> Adversaries
+          </span>
+          <span class="px-2.5 py-1 rounded-md bg-gray-900/90 border border-amber-500/30 text-amber-300 flex items-center gap-1.5 backdrop-blur-sm">
+            <span class="w-2 h-2 rounded-full bg-amber-400"></span> Jev 1.13 Gate
+          </span>
+        </div>
+      </div>
+
+      <!-- Bottom Bento Stage: Live Adversarial Debate & Verdict Stream (Cult UI Terminal) -->
+      <div class="h-2/5 flex flex-col bg-gray-950/80 backdrop-blur-md">
+        <div class="h-9 bg-gray-900/80 border-b border-white/10 px-4 flex items-center justify-between shrink-0">
+          <div class="flex items-center space-x-3 text-xs mono">
+            <span class="text-white font-bold flex items-center gap-2">
+              <i class="fa-solid fa-terminal text-sky-400"></i> LIVE EMPIRICAL PROOF & DEBATE STREAM
+            </span>
+            <span class="text-gray-600">|</span>
+            <span class="text-gray-400 text-[11px]">Strict Proof Requirements · Adversarial Challenge Loop</span>
+          </div>
+          <div class="flex items-center gap-2 text-[10px] mono">
+            <span class="text-emerald-400 flex items-center gap-1">
+              <i class="fa-solid fa-circle text-[6px]"></i> STREAMING LIVE
+            </span>
+          </div>
+        </div>
+
+        <!-- Terminal Feed -->
+        <div id="terminal-feed" class="flex-1 overflow-y-auto p-4 space-y-2 mono text-xs text-gray-300">
+          <!-- Live events streamed by JavaScript -->
+        </div>
+      </div>
+    </main>
+
+    <!-- Right Column: Second Brain (gbrain + open-2nd-brain rules) -->
+    <aside class="w-80 bg-gray-950/60 backdrop-blur-lg border-l border-white/10 flex flex-col shrink-0 z-20">
+      <div class="p-3.5 border-b border-white/10 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-brain text-purple-400 text-xs"></i>
+          <span class="text-xs font-bold text-gray-300 uppercase tracking-wider">Second Brain Memory</span>
+        </div>
+        <span class="text-[10px] text-emerald-400 font-mono px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">Synced</span>
+      </div>
+
+      <!-- Memory Body -->
+      <div class="flex-1 overflow-y-auto p-3 space-y-3">
+        <div class="text-[11px] font-mono text-gray-400 font-semibold tracking-wide">PERMANENT GUARDRAILS:</div>
+        
+        <div class="bento-card p-3 rounded-lg text-xs space-y-1.5 border border-sky-500/20">
+          <div class="text-sky-400 font-bold font-mono text-[11px]">RULE 01: ATOMIC_FENCING</div>
+          <p class="text-gray-400 text-[11px] leading-relaxed">Never claim unacknowledged Redis tasks without monotonic epoch tokens to prevent split-brain double commits.</p>
+          <div class="text-[10px] text-gray-500 font-mono">Provenance: Jev 1.13 Verdict #104</div>
+        </div>
+
+        <div class="bento-card p-3 rounded-lg text-xs space-y-1.5 border border-purple-500/20">
+          <div class="text-purple-400 font-bold font-mono text-[11px]">RULE 02: COST_CIRCUIT_BREAKER</div>
+          <p class="text-gray-400 text-[11px] leading-relaxed">Paid Coarena models strictly gated behind automated deadlock breaker ($5.00 daily limit, resets 05:30 IST).</p>
+          <div class="text-[10px] text-gray-500 font-mono">Provenance: Financial Guardrail</div>
+        </div>
+
+        <div class="bento-card p-3 rounded-lg text-xs space-y-1.5 border border-emerald-500/20">
+          <div class="text-emerald-400 font-bold font-mono text-[11px]">RULE 03: ZERO_KEY_EXPOSURE</div>
+          <p class="text-gray-400 text-[11px] leading-relaxed">Never write API credentials to Git, logs, client files, or UI telemetry packets.</p>
+          <div class="text-[10px] text-gray-500 font-mono">Provenance: Security Policy</div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <script>
+    // Spotlight cursor effect (Hover.dev pattern)
+    document.getElementById('main-panel').addEventListener('mousemove', (e) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      e.currentTarget.style.setProperty('--mouse-x', `${x}%`);
+      e.currentTarget.style.setProperty('--mouse-y', `${y}%`);
+    });
+
+    // 16 Verified Models across the 4 Gateways
+    const meshNodes = [
+      { id: "jev", name: "Jev 1.13", role: "Decision Gate", gw: "APInex", color: "#fbbf24", ping: "294ms", active: true },
+      { id: "gemini4", name: "Gemini 4 Carbon", role: "Frontier Logic", gw: "Respan", color: "#38bdf8", ping: "310ms", active: true },
+      { id: "muse_ember", name: "Muse Ember", role: "Fast Multimodal", gw: "Respan", color: "#34d399", ping: "185ms", active: true },
+      { id: "claude_fable", name: "Claude Fable 5.2", role: "Deep Thinking", gw: "Experiential", color: "#a855f7", ping: "420ms", active: true },
+      { id: "kimi_k3", name: "Kimi K3", role: "Context Engine", gw: "APInex", color: "#c084fc", ping: "260ms", active: true },
+      { id: "deepseek_v4_pro", name: "DeepSeek V4 Pro", role: "Adversary / Audit", gw: "APInex", color: "#fb7185", ping: "280ms", active: true },
+      { id: "qwen_38", name: "Qwen 3.8 MAX", role: "Backend Architect", gw: "APInex", color: "#818cf8", ping: "275ms", active: true },
+      { id: "glm_53", name: "GLM 5.3", role: "Code Generation", gw: "APInex", color: "#60a5fa", ping: "320ms", active: true },
+      { id: "glm_53_flash", name: "GLM 5.3 Flash", role: "Fast Synthesizer", gw: "APInex", color: "#38bdf8", ping: "190ms", active: true },
+      { id: "deepseek_v41_flash", name: "DeepSeek V4.1 Flash", role: "Adversary Challenger", gw: "APInex", color: "#f43f5e", ping: "210ms", active: true },
+      { id: "gemini_38_flash", name: "Gemini 3.8 Flash", role: "Research & Tools", gw: "APInex", color: "#2dd4bf", ping: "205ms", active: true },
+      { id: "hy4", name: "HY4", role: "Domain Specialist", gw: "APInex", color: "#a78bfa", ping: "315ms", active: true },
+      { id: "muse_spark", name: "Muse Spark 1.3", role: "UI / Creative", gw: "APInex", color: "#e879f9", ping: "240ms", active: true },
+      { id: "minimax_m31", name: "MiniMax M3.1", role: "Data Processing", gw: "APInex", color: "#fb923c", ping: "295ms", active: true },
+      { id: "gpt6_luna", name: "GPT-6 Luna", role: "System Verification", gw: "APInex", color: "#4ade80", ping: "340ms", active: true },
+      { id: "coarena_sol", name: "GPT-6.1 Sol", role: "Emergency Circuit Breaker", gw: "Coarena", color: "#f59e0b", ping: "410ms", active: false }
+    ];
+
+    // Render Left Roster
+    const rosterContainer = document.getElementById("roster-container");
+    meshNodes.forEach(node => {
+      const el = document.createElement("div");
+      el.className = "bento-card p-2 rounded-md flex items-center justify-between cursor-pointer";
+      el.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full" style="background-color: ${node.color}"></span>
+          <div>
+            <div class="font-semibold text-gray-200 text-[11px]">${node.name}</div>
+            <div class="text-[9px] text-gray-500 font-sans">${node.role} · ${node.gw}</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <span class="text-[9px] text-gray-400 font-mono">${node.ping}</span>
+        </div>
+      `;
+      rosterContainer.appendChild(el);
+    });
+
+    // Canvas Interactive Topology with Moving Packets
+    const canvas = document.getElementById("topology-canvas");
+    const ctx = canvas.getContext("2d");
+    let width, height;
+
+    function resize() {
+      width = canvas.parentElement.clientWidth;
+      height = canvas.parentElement.clientHeight;
+      canvas.width = width;
+      canvas.height = height;
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    // Node Positions
+    const layoutNodes = [
+      { id: "jev", x: 0.5, y: 0.5, name: "Jev 1.13 Gate", color: "#fbbf24", r: 16 },
+      { id: "qwen", x: 0.22, y: 0.35, name: "Qwen 3.8 (Builder)", color: "#818cf8", r: 12 },
+      { id: "deepseek", x: 0.78, y: 0.35, name: "DeepSeek (Adversary)", color: "#fb7185", r: 12 },
+      { id: "carbon", x: 0.22, y: 0.68, name: "Gemini 4 Carbon", color: "#38bdf8", r: 12 },
+      { id: "fable", x: 0.78, y: 0.68, name: "Claude Fable 5.2", color: "#a855f7", r: 12 },
+      { id: "web", x: 0.5, y: 0.16, name: "APInex Web Discovery", color: "#34d399", r: 10 }
+    ];
+
+    let packets = [];
+
+    function spawnPacket(fromId, toId, color) {
+      const from = layoutNodes.find(n => n.id === fromId);
+      const to = layoutNodes.find(n => n.id === toId);
+      if (from && to) {
+        packets.push({
+          x: from.x * width,
+          y: from.y * height,
+          startX: from.x * width,
+          startY: from.y * height,
+          targetX: to.x * width,
+          targetY: to.y * height,
+          progress: 0,
+          speed: 0.015 + Math.random() * 0.01,
+          color: color || "#38bdf8"
+        });
+      }
+    }
+
+    // Auto-stream packets
+    setInterval(() => {
+      const flows = [
+        ["web", "qwen", "#34d399"],
+        ["qwen", "deepseek", "#818cf8"],
+        ["deepseek", "qwen", "#fb7185"],
+        ["qwen", "jev", "#818cf8"],
+        ["deepseek", "jev", "#fb7185"],
+        ["jev", "carbon", "#fbbf24"]
+      ];
+      const pick = flows[Math.floor(Math.random() * flows.length)];
+      spawnPacket(pick[0], pick[1], pick[2]);
+    }, 700);
+
+    function renderGraph() {
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw Connection lines
+      ctx.lineWidth = 1;
+      for (let i = 0; i < layoutNodes.length; i++) {
+        for (let j = i + 1; j < layoutNodes.length; j++) {
+          const n1 = layoutNodes[i];
+          const n2 = layoutNodes[j];
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+          ctx.beginPath();
+          ctx.moveTo(n1.x * width, n1.y * height);
+          ctx.lineTo(n2.x * width, n2.y * height);
+          ctx.stroke();
+        }
+      }
+
+      // Update & Draw Packets
+      for (let i = packets.length - 1; i >= 0; i--) {
+        const p = packets[i];
+        p.progress += p.speed;
+        p.x = p.startX + (p.targetX - p.startX) * p.progress;
+        p.y = p.startY + (p.targetY - p.startY) * p.progress;
+
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = p.color;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        if (p.progress >= 1) {
+          packets.splice(i, 1);
+        }
+      }
+
+      // Draw Nodes
+      layoutNodes.forEach(n => {
+        const nx = n.x * width;
+        const ny = n.y * height;
+
+        // Outer Glow Ring
+        ctx.shadowBlur = 16;
+        ctx.shadowColor = n.color;
+        ctx.fillStyle = n.color;
+        ctx.beginPath();
+        ctx.arc(nx, ny, n.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Inner Core
+        ctx.fillStyle = "#030712";
+        ctx.beginPath();
+        ctx.arc(nx, ny, n.r - 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Center dot
+        ctx.fillStyle = n.color;
+        ctx.beginPath();
+        ctx.arc(nx, ny, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Label
+        ctx.fillStyle = "#e5e7eb";
+        ctx.font = "600 11px 'JetBrains Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(n.name, nx, ny + n.r + 16);
+      });
+
+      requestAnimationFrame(renderGraph);
+    }
+    renderGraph();
+
+    // Terminal Debate Feed Simulator
+    const terminalFeed = document.getElementById("terminal-feed");
+    const debateEvents = [
+      { text: "[DISCOVERY] APInex Web Search indexed: 'FastAPI zero-copy stream chunking' (3 references).", color: "text-sky-400" },
+      { text: "[TASK_DELEGATION] Jev 1.13 assigned Builder: Qwen 3.8 MAX | Adversary: DeepSeek V4 Pro.", color: "text-amber-400" },
+      { text: "[BUILDER_PROPOSAL] Qwen 3.8 dispatched non-blocking async generator with backpressure control.", color: "text-indigo-400" },
+      { text: "[ADVERSARIAL_CHALLENGE] DeepSeek V4: 'Slow clients will cause memory leakage in chunk queue under 10k RPS load.'", color: "text-rose-400", highlight: true },
+      { text: "[EMPIRICAL_DEFENSE] Qwen 3.8 provided proof: Fixed ring-buffer with sliding window drop policy drops latency to 4ms.", color: "text-emerald-400", highlight: true },
+      { text: "[JEV_VERDICT] VERDICT APPROVED (Score: 0.98). Rule #4 compiled and committed to Second Brain WAL.", color: "text-sky-300 font-bold" }
+    ];
+
+    let eventIdx = 0;
+    function addTerminalLine() {
+      const ev = debateEvents[eventIdx % debateEvents.length];
+      const div = document.createElement("div");
+      div.className = `${ev.color} ${ev.highlight ? 'bg-white/[0.02] p-2 rounded border border-white/5' : ''}`;
+      div.innerHTML = `<span class="text-gray-500">[${new Date().toLocaleTimeString()}]</span> ${ev.text}`;
+      terminalFeed.appendChild(div);
+      terminalFeed.scrollTop = terminalFeed.scrollHeight;
+      eventIdx++;
+    }
+
+    // Prepopulate & stream
+    for(let i = 0; i < 4; i++) addTerminalLine();
+    setInterval(addTerminalLine, 4500);
+
+    function dispatchSimulationPulse() {
+      for(let i = 0; i < 6; i++) {
+        setTimeout(() => {
+          spawnPacket("qwen", "deepseek", "#818cf8");
+          spawnPacket("deepseek", "jev", "#fb7185");
+        }, i * 150);
+      }
+      addTerminalLine();
+    }
+  </script>
+</body>
+</html>

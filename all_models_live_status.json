@@ -1,0 +1,154 @@
+[
+  {
+    "gateway": "Respan",
+    "model": "respan/gemini-4-carbon:free",
+    "category": "Frontier Reasoning",
+    "status": "404 Not Found",
+    "latency_ms": 2287.4,
+    "response": null
+  },
+  {
+    "gateway": "Respan",
+    "model": "meta/muse-ember:free",
+    "category": "UI & Design",
+    "status": "ERROR: 'ChatCompletionMessage' object has no attribute 'reasoning'",
+    "latency_ms": 2163.9,
+    "response": null
+  },
+  {
+    "gateway": "Respan",
+    "model": "claude-fable-5.2",
+    "category": "Paid Claude",
+    "status": "401 Unauthorized / Needs Credits",
+    "latency_ms": 1194.3,
+    "response": null
+  },
+  {
+    "gateway": "Experiential",
+    "model": "claude-fable-5.2:free",
+    "category": "Audit & Architecture",
+    "status": "403 Model Not Granted / Quota",
+    "latency_ms": 890.1,
+    "response": null
+  },
+  {
+    "gateway": "APInex",
+    "model": "free/qwen-3.8-max",
+    "category": "Rust & Tokio Systems",
+    "status": "ONLINE",
+    "latency_ms": 2822.6,
+    "response": "OK"
+  },
+  {
+    "gateway": "APInex",
+    "model": "free/deepseek-v4-pro-0813",
+    "category": "Red Team & Bug Bounty",
+    "status": "ONLINE",
+    "latency_ms": 2137.1,
+    "response": "OK"
+  },
+  {
+    "gateway": "APInex",
+    "model": "free/kimi-k3",
+    "category": "Hackathon Recon & Docs",
+    "status": "ONLINE",
+    "latency_ms": 2567.5,
+    "response": "OK"
+  },
+  {
+    "gateway": "APInex",
+    "model": "free/gpt-6-luna",
+    "category": "Code Synthesis",
+    "status": "ONLINE",
+    "latency_ms": 4181.7,
+    "response": "OK"
+  },
+  {
+    "gateway": "APInex",
+    "model": "free/gemini-3.8-flash",
+    "category": "High-Speed Dispatch",
+    "status": "ONLINE",
+    "latency_ms": 7964.5,
+    "response": "OK"
+  },
+  {
+    "gateway": "APInex",
+    "model": "free/deepseek-v4.1-flash",
+    "category": "Fast Agent Loops",
+    "status": "ONLINE",
+    "latency_ms": 4721.4,
+    "response": "OK"
+  },
+  {
+    "gateway": "APInex",
+    "model": "free/glm-5.3",
+    "category": "Multimodal Analysis",
+    "status": "ONLINE",
+    "latency_ms": 2455.7,
+    "response": "OK"
+  },
+  {
+    "gateway": "APInex",
+    "model": "free/jev-1.13",
+    "category": "Probabilistic Router",
+    "status": "ERROR: Error code: 400 - {'error': {'message': \"Model 'free/jev-1.1",
+    "latency_ms": 1525.7,
+    "response": null
+  },
+  {
+    "gateway": "APInex",
+    "model": "free/minimax-m3.1-flash",
+    "category": "Context Compaction",
+    "status": "ONLINE",
+    "latency_ms": 5200.4,
+    "response": "OK"
+  },
+  {
+    "gateway": "APInex",
+    "model": "free/hy4",
+    "category": "General Reasoning",
+    "status": "ONLINE",
+    "latency_ms": 2585.1,
+    "response": "OK"
+  },
+  {
+    "gateway": "APInex",
+    "model": "claude-fable-5.2",
+    "category": "Paid Claude",
+    "status": "402 Payment Required",
+    "latency_ms": 3878.3,
+    "response": null
+  },
+  {
+    "gateway": "Free.ai",
+    "model": "qwen-coder",
+    "category": "Grant Code",
+    "status": "ONLINE",
+    "latency_ms": 1366.9,
+    "response": "OK"
+  },
+  {
+    "gateway": "Free.ai",
+    "model": "qwen7b",
+    "category": "Grant General",
+    "status": "ONLINE",
+    "latency_ms": 1236.9,
+    "response": "OK"
+  },
+  {
+    "gateway": "Free.ai",
+    "model": "deepseek-r1-7b",
+    "category": "Grant Deep Thinking",
+    "status": "ONLINE",
+    "latency_ms": 4323.5,
+    "response": "OK"
+  },
+  {
+    "gateway": "Coarena",
+    "model": "gpt-6-1-sol",
+    "category": "Emergency Tie-Breaker",
+    "status": "ERROR: Error code: 400 - {'error': {'message': 'GPT-6.1 Sol (gpt-6-",
+    "latency_ms": 3280.7,
+    "response": null
+  }
+]

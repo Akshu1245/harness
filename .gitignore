@@ -1,0 +1,14 @@
+.env
+.env.local
+.env.*
+__pycache__/
+*.pyc
+.colab_config.json
+.system_generated/
+*.log
+node_modules/
+target/
+**/target/
+free-claude-code-ref/
+langfuse-skills/
+.simular*
