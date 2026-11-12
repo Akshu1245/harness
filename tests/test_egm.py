@@ -33,3 +33,24 @@ def test_drift(tmp_path):
     (tmp_path / "ok.py").write_text("")
     r = egm.drift_report("`ok.py` `gone.py`", str(tmp_path))
     assert r["missing_paths"] == ["gone.py"]
+
+
+def test_checks_on_missing_files_are_rejected(tmp_path):
+    (tmp_path / "t.py").write_text("")
+    bad = lambda s, u: '{"findings":[]}' if s == egm.GOLDFISH_SYS else "Checks\n- `python -m pytest t.py nope.py`\n"
+    spec, findings, checks = egm.spec_gate(bad, "g", str(tmp_path))
+    assert checks == [] and any("nope.py" in f["issue"] for f in findings)
+    good = lambda s, u: '{"findings":[]}' if s == egm.GOLDFISH_SYS else "Checks\n- `python -m pytest t.py`\n"
+    assert egm.spec_gate(good, "g", str(tmp_path))[2] != []
+
+
+def test_revision_that_drops_checks_keeps_last_valid(tmp_path):
+    (tmp_path / "t.py").write_text("")
+    n = {"g": 0}
+    def llm(s, u):
+        if s == egm.GOLDFISH_SYS:
+            n["g"] += 1
+            return '{"findings":[{"severity":"high","issue":"x","evidence":""}]}'
+        return "Checks\n- `python t.py`\n" if "Revise" not in u else "no checks here"
+    spec, findings, checks = egm.spec_gate(llm, "g", str(tmp_path))
+    assert checks == [{"id": "c1", "cmd": "python t.py"}]

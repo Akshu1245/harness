@@ -37,6 +37,18 @@ def extract_checks(spec_text):
     return [{"id": f"c{i+1}", "cmd": c} for i, c in enumerate(cmds)]
 
 
+def invalid_checks(checks, workdir):
+    """Findings for checks that name files which do not exist. A check on a missing file can never pass."""
+    out = []
+    for c in checks:
+        for tok in re.findall(r"[\w./-]+\.\w+", c["cmd"]):
+            if "/" in tok or tok.endswith((".py", ".sh", ".js")):
+                if not (Path(workdir) / tok).exists():
+                    out.append({"severity": "high", "issue": f"check {c['id']} references missing file {tok}",
+                                "evidence": c["cmd"]})
+    return out
+
+
 def goldfish_review(llm, spec_text, workdir):
     """Fresh context: only the spec and referenced files are passed."""
     refs = "".join(f"\n--- {r} ---\n{t}" for r, t in referenced_files(spec_text, workdir))
@@ -60,12 +72,22 @@ def drift_report(spec_text, workdir):
 
 def spec_gate(llm, goal, workdir, context="", max_rounds=2):
     """Elephant drafts, goldfish reviews, elephant revises on high findings. Returns (spec, findings, checks).
-    A human still approves the spec before the build loop runs."""
+    Checks must be runnable: they may only name files that exist. If a revision loses or breaks the checks,
+    the last valid set is kept. A human still approves the spec before the build loop runs."""
     spec = draft_spec(llm, goal, context)
-    findings = []
+    findings, valid = [], []
     for _ in range(max_rounds):
-        findings = goldfish_review(llm, spec, workdir)
+        cur = extract_checks(spec)
+        bad = invalid_checks(cur, workdir)
+        if cur and not bad:
+            valid = cur
+        findings = goldfish_review(llm, spec, workdir) + bad
         if not any(f.get("severity") == "high" for f in findings):
             break
-        spec = llm(ELEPHANT_SYS, f"Revise this spec to resolve these findings.\nSPEC:\n{spec}\nFINDINGS:\n{json.dumps(findings)}")
-    return spec, findings, extract_checks(spec)
+        spec = llm(ELEPHANT_SYS, "Revise this spec to resolve these findings. Keep the Checks section. "
+                   "Checks may only use files that already exist.\nSPEC:\n" + spec + "\nFINDINGS:\n" + json.dumps(findings))
+    cur = extract_checks(spec)
+    bad = invalid_checks(cur, workdir)
+    if cur and not bad:
+        valid = cur
+    return spec, findings + ([] if not bad else bad), valid
