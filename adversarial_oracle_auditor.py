@@ -248,7 +248,7 @@ AUDIT QUESTIONS:
         t2 = self.run_trial_2_utc_circuit_breaker()
         t3 = self.run_trial_3_gap_a_honeypot()
 
-        out_path = r"d:\unreseted ai\adversarial_oracle_audit_report.json"
+        out_path = os.path.join(os.environ.get("RASHI_DATA_DIR","."), "adversarial_oracle_audit_report.json")
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(self.report, f, indent=2)
 

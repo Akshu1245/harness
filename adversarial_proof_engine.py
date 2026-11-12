@@ -126,6 +126,6 @@ if __name__ == "__main__":
         builder_cfg={"name": "Qwen 3.8 MAX", "client": apinex, "model": "free/qwen-3.8-max"},
         adversary_cfg={"name": "DeepSeek V4 Pro", "client": apinex, "model": "free/deepseek-v4-pro-0813"}
     )
-    with open("d:\\unreseted ai\\adversarial_trial_report.json", "w") as f:
+    with open(os.path.join(os.environ.get("RASHI_DATA_DIR","."), "adversarial_trial_report.json"), "w") as f:
         json.dump(trial_result, f, indent=2)
     print("\nAdversarial Trial Completed and Logged to adversarial_trial_report.json!")

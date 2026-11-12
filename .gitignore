@@ -1,6 +1,6 @@
 .env
-.env.local
 .env.*
+!.env.example
 __pycache__/
 *.pyc
 .colab_config.json
@@ -18,3 +18,5 @@ FULL_CONVERSATION_AND_PROMPTS_ARCHIVE.md
 all_user_prompts_raw.json
 build_full_conversation_archive.py
 extract_chat_history.py
+PROGRESS.json
+.rashi/

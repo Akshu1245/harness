@@ -1,6 +1,7 @@
+import os
 import json
 
-with open(r"d:\unreseted ai\rashi_system_prompts.json", "r", encoding="utf-8") as f:
+with open(os.path.join(os.environ.get("RASHI_DATA_DIR","."), "rashi_system_prompts.json"), "r", encoding="utf-8") as f:
     prompts = json.load(f)
 
 # Update RULE-MAX-011 with Peter Yang's no-ai-slop guidelines
@@ -37,7 +38,7 @@ You have instant design access to the 50 verified UI libraries in `d:\\unreseted
 - For Rock-Solid Primitives: Shadcn/ui, Headless UI, Jolly UI, DaisyUI.
 Never build dull, unstyled components. Always craft production-grade, aesthetically stunning interfaces using these ecosystems."""
 
-with open(r"d:\unreseted ai\rashi_system_prompts.json", "w", encoding="utf-8") as f:
+with open(os.path.join(os.environ.get("RASHI_DATA_DIR","."), "rashi_system_prompts.json"), "w", encoding="utf-8") as f:
     json.dump(prompts, f, indent=2)
 
 print("Successfully updated rashi_system_prompts.json with petergyang/no-ai-slop rules and 50 component libraries!")

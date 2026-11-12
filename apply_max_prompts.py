@@ -122,7 +122,7 @@ system_prompts_data = {
     }
 }
 
-path = r"d:\unreseted ai\rashi_system_prompts.json"
+path = os.path.join(os.environ.get("RASHI_DATA_DIR","."), "rashi_system_prompts.json")
 with open(path, "w", encoding="utf-8") as f:
     json.dump(system_prompts_data, f, indent=2)
 

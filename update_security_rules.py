@@ -1,6 +1,7 @@
+import os
 import json
 
-with open(r"d:\unreseted ai\rashi_system_prompts.json", "r", encoding="utf-8") as f:
+with open(os.path.join(os.environ.get("RASHI_DATA_DIR","."), "rashi_system_prompts.json"), "r", encoding="utf-8") as f:
     data = json.load(f)
 
 # Rule 8: Absolute Brutal Honesty & Zero False Hope
@@ -35,7 +36,7 @@ You are explicitly authorized and green-flagged to execute advanced cybersecurit
 4. **Autonomous Dialectic Defense**:
    - When submitting vulnerability claims, defend the severity against peer red-team auditors. Prove impact with undeniable mathematical and architectural evidence before marking as verified."""
 
-with open(r"d:\unreseted ai\rashi_system_prompts.json", "w", encoding="utf-8") as f:
+with open(os.path.join(os.environ.get("RASHI_DATA_DIR","."), "rashi_system_prompts.json"), "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2)
 
 print("Successfully injected Brutal Honesty (Reality Check) and Green-Flag Bug Bounty/Hacking rules into rashi_system_prompts.json!")

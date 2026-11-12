@@ -66,6 +66,29 @@ CROSS_REVIEW_MATRIX = {
     }
 }
 
+REFUSAL_MARKERS = ("i can't provide", "i cannot provide", "i'm sorry, but i can't", "i am unable to", "no output generated")
+
+
+def is_usable_output(text) -> bool:
+    """Reject empty, tiny or refusal-style model output."""
+    if not text or len(text.strip()) < 40:
+        return False
+    low = text.lower()
+    return not any(m in low for m in REFUSAL_MARKERS)
+
+
+def parse_gate(resp) -> float:
+    """Return approval probability 0..1. Fails CLOSED: any error or missing field = 0.0."""
+    try:
+        if getattr(resp, "status_code", 200) != 200:
+            return 0.0
+        val = resp.json()["answers"]["is_acceptable"]["noul"]
+        val = float(val)
+        return val if 0.0 <= val <= 1.0 else 0.0
+    except Exception:
+        return 0.0
+
+
 class AutonomousLoopEngine:
     """Master Loop Orchestrator implementing autonomous loop engineering."""
 
@@ -143,14 +166,15 @@ Evaluate:
             },
             timeout=15
         )
-        decision = gate_res.json().get("answers", {}).get("is_acceptable", {})
+        decision = parse_gate(gate_res)
 
         return {
             "builder": builder_name,
             "auditor": auditor_name,
             "draft": draft,
             "audit_critique": critique,
-            "approval_probability": decision.get("noul", 1.0)
+            "approval_probability": decision,
+            "usable": is_usable_output(draft)
         }
 
     @classmethod
@@ -182,20 +206,22 @@ Evaluate:
         )
 
         print("\n" + "=" * 70)
-        print(" AUTONOMOUS LOOP CYCLE COMPLETED SUCCESSFULLY ")
+        ok = backend_stage["usable"] and ui_stage["usable"] and min(backend_stage["approval_probability"], ui_stage["approval_probability"]) >= 0.7
+        print(" CYCLE FINISHED: PASSED GATES " if ok else " CYCLE FINISHED: NOT APPROVED (see report) ")
         print("=" * 70)
 
         return {
             "goal": goal,
             "open_source_foundations": open_source_findings,
             "backend_stage": backend_stage,
-            "ui_stage": ui_stage
+            "ui_stage": ui_stage,
+            "approved": ok
         }
 
 if __name__ == "__main__":
     report = AutonomousLoopEngine.run_full_autonomous_cycle(
         goal="Autonomous AI task queue manager with live telemetry and model switching"
     )
-    with open("d:\\unreseted ai\\autonomous_loop_execution.json", "w") as f:
+    with open(os.environ.get("RASHI_REPORT_PATH", "autonomous_loop_execution.json"), "w") as f:
         json.dump(report, f, indent=2)
     print("\nReport written to autonomous_loop_execution.json")

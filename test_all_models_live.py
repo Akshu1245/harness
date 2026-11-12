@@ -96,7 +96,7 @@ if free_ai_key:
 test_model("Coarena", "https://coarena.ai/api/v1", coarena_key, "gpt-6-1-sol", "Emergency Tie-Breaker")
 
 import json
-with open(r"d:\unreseted ai\all_models_live_status.json", "w", encoding="utf-8") as f:
+with open(os.path.join(os.environ.get("RASHI_DATA_DIR","."), "all_models_live_status.json"), "w", encoding="utf-8") as f:
     json.dump(results, f, indent=2)
 
 print("\nSaved full audit to d:\\unreseted ai\\all_models_live_status.json")

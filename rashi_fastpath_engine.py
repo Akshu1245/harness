@@ -106,6 +106,13 @@ class ThinkTagParser:
                     self.buffer = self.buffer[idx + len(self.CLOSE_TAG):]
                     self.in_think_tag = False
 
+    def flush(self) -> Iterator[ContentChunk]:
+        """Emit buffered text at end of stream (handles an unclosed <think>)."""
+        if self.buffer:
+            kind = ContentType.THINKING if self.in_think_tag else ContentType.TEXT
+            out, self.buffer = self.buffer, ""
+            yield ContentChunk(kind, out)
+
     def _check_partial(self, s: str, tag: str) -> int:
         for i in range(min(len(s), len(tag) - 1), 0, -1):
             if tag.startswith(s[-i:]):
@@ -137,7 +144,7 @@ class FastPathOptimizer:
         prompt_lower = user_prompt.lower().strip()
 
         # 1. Quota check or ping probe
-        if any(k in prompt_lower for k in ["quota check", "ping probe", "network check", "healthcheck"]):
+        if prompt_lower in ("quota check", "ping probe", "network check", "healthcheck", "network healthcheck ping probe"):
             return {
                 "intercepted": True,
                 "type": "quota_mock",

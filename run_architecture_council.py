@@ -118,7 +118,7 @@ output_data = {
     "model_proposals": model_responses
 }
 
-with open("d:\\unreseted ai\\architecture_council_report.json", "w") as f:
+with open(os.path.join(os.environ.get("RASHI_DATA_DIR","."), "architecture_council_report.json"), "w") as f:
     json.dump(output_data, f, indent=2)
 
 print("\n--- ARCHITECTURE COUNCIL CONSULTATION COMPLETE ---")

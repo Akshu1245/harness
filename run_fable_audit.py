@@ -51,7 +51,7 @@ try:
         max_tokens=2500
     )
     audit = resp.choices[0].message.content or resp.choices[0].message.reasoning
-    with open(r"d:\unreseted ai\fable_5_2_unfiltered_verdict.json", "w", encoding="utf-8") as f:
+    with open(os.path.join(os.environ.get("RASHI_DATA_DIR","."), "fable_5_2_unfiltered_verdict.json"), "w", encoding="utf-8") as f:
         json.dump({"model": "claude-fable-5.2", "verdict": audit}, f, indent=2)
     print("SUCCESS: Fable 5.2 audit captured!")
     print(audit)

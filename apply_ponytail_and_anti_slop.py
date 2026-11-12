@@ -1,6 +1,7 @@
+import os
 import json
 
-with open(r"d:\unreseted ai\rashi_system_prompts.json", "r", encoding="utf-8") as f:
+with open(os.path.join(os.environ.get("RASHI_DATA_DIR","."), "rashi_system_prompts.json"), "r", encoding="utf-8") as f:
     data = json.load(f)
 
 # Rule 10: Ponytail Senior-Minimalist Engineering Law
@@ -31,7 +32,7 @@ data["role_prompts"]["ponytail_minimalist_auditor"] = """You are the **Rashi Pon
    - Zero in on high-impact security fundamentals: root privilege dropping, strict loopback binding (127.0.0.1), immutable file permissions, and sanitizing user inputs.
    - Ignore low-severity lint noise; hunt fatal exploits and architectural fragility."""
 
-with open(r"d:\unreseted ai\rashi_system_prompts.json", "w", encoding="utf-8") as f:
+with open(os.path.join(os.environ.get("RASHI_DATA_DIR","."), "rashi_system_prompts.json"), "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2)
 
 print("Injected Ponytail Senior-Minimalism (RULE-MAX-010) and Anti-AI Slop (RULE-MAX-011) into rashi_system_prompts.json!")

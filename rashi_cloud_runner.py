@@ -12,11 +12,7 @@ import io
 import json
 from typing import Optional, Dict, Any
 
-# 1. Secure API Keys Integration
-os.environ["RESPAN_API_KEY"] = "04EkULNO.9rBUnYLdYCNCdDtyO2RtOKzN4pY9XTlG"
-os.environ["EXPLABS_API_KEY"] = "xpl_35be619b5271cdfc433015f3d536227d86a2bdbb"
-os.environ["APINEX_API_KEY"] = "sk-apx3055d1309381796de30bbbdf3ef93bd4e82c349040c0bfe"
-os.environ["COARENA_API_KEY"] = "coa_dc2ff39b6065c5c4244dfd1fd84ff1c0"
+# 1. Keys come from the environment only (set them in Colab secrets / shell). Never hardcode.
 
 # 2. Automated Browser Check & Installation
 def verify_and_install_browser():
@@ -54,8 +50,36 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import uvicorn
 from pycloudflared import try_cloudflare
+import ipaddress, socket, secrets
+from urllib.parse import urlparse
+from fastapi import Header
 
 app = FastAPI(title="Rashi Harness Cloud Engine")
+
+# --- access control: every browser call needs a bearer token; URLs are checked (SSRF guard) ---
+RUNNER_TOKEN = os.environ.get("RASHI_RUNNER_TOKEN") or secrets.token_urlsafe(32)
+if not os.environ.get("RASHI_RUNNER_TOKEN"):
+    print("[AUTH] No RASHI_RUNNER_TOKEN set; generated a one-time token for this session (shown once below).")
+
+def check_token(authorization):
+    if not authorization or not secrets.compare_digest(authorization, f"Bearer {RUNNER_TOKEN}"):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+def url_is_public(url: str) -> bool:
+    """Allow only http(s) URLs whose host resolves to public IPs."""
+    p = urlparse(url)
+    if p.scheme not in ("http", "https") or not p.hostname:
+        return False
+    try:
+        infos = socket.getaddrinfo(p.hostname, None)
+    except OSError:
+        return False
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            return False
+    return True
+
 
 @app.get("/health")
 def health():
@@ -63,7 +87,7 @@ def health():
         "status": "online",
         "service": "Rashi Harness Cloud Worker",
         "browser_ready": True,
-        "keys_loaded": ["RESPAN", "EXPLABS", "APINEX", "COARENA"]
+        "keys_loaded": [k for k in ("RESPAN","EXPLABS","APINEX","COARENA") if os.environ.get(k+"_API_KEY")]
     }
 
 class BrowserNavRequest(BaseModel):
@@ -71,7 +95,10 @@ class BrowserNavRequest(BaseModel):
     take_screenshot: bool = True
 
 @app.post("/browser/navigate")
-async def browser_navigate(req: BrowserNavRequest):
+async def browser_navigate(req: BrowserNavRequest, authorization: str = Header(default=None)):
+    check_token(authorization)
+    if not url_is_public(req.url):
+        raise HTTPException(status_code=400, detail="URL not allowed (must be public http/https)")
     """Executes cloud headless browser navigation and returns page title and screenshot."""
     try:
         from playwright.async_api import async_playwright
@@ -95,7 +122,7 @@ async def browser_navigate(req: BrowserNavRequest):
 
 # Run daemon
 def start_server():
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
 
 threading.Thread(target=start_server, daemon=True).start()
 
@@ -104,6 +131,7 @@ print("[4/4] Establishing Cloudflare Tunnel for Rashi Harness...")
 public_url = try_cloudflare(port=8000)
 print("\n" + "="*60)
 print(f"RASHI HARNESS CLOUD WORKER URL: {public_url.tunnel}")
+print("Send header  Authorization: Bearer <RASHI_RUNNER_TOKEN>  with every browser call.")
 print("Register this URL in your local workspace using:")
 print(f"python client.py --add-endpoint {public_url.tunnel}")
 print("="*60)

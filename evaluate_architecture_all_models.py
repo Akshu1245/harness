@@ -103,7 +103,7 @@ output_report = {
     "jev_meta_decision": meta_decision
 }
 
-with open("d:\\unreseted ai\\full_model_evaluations_report.json", "w") as f:
+with open(os.path.join(os.environ.get("RASHI_DATA_DIR","."), "full_model_evaluations_report.json"), "w") as f:
     json.dump(output_report, f, indent=2)
 
 print("\nAll model reviews compiled into full_model_evaluations_report.json!")

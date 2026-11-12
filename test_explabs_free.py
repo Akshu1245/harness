@@ -52,7 +52,7 @@ for m in candidates:
         print(f"[FAILED] {m} ({latency}ms) -> {status}")
 
 import json
-with open(r"d:\unreseted ai\explabs_working_free_models.json", "w", encoding="utf-8") as f:
+with open(os.path.join(os.environ.get("RASHI_DATA_DIR","."), "explabs_working_free_models.json"), "w", encoding="utf-8") as f:
     json.dump(working, f, indent=2)
 
 print(f"\nTotal working models found: {len(working)}")

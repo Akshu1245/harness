@@ -1,3 +1,4 @@
+import os
 import json
 
 accelerators = {
@@ -114,7 +115,7 @@ accelerators = {
     ]
 }
 
-with open(r"d:\unreseted ai\rashi_accelerators.json", "w", encoding="utf-8") as f:
+with open(os.path.join(os.environ.get("RASHI_DATA_DIR","."), "rashi_accelerators.json"), "w", encoding="utf-8") as f:
     json.dump(accelerators, f, indent=2)
 
 print("Saved d:\\unreseted ai\\rashi_accelerators.json with all 9 Nov 11 repos and 50 verified component libraries!")
