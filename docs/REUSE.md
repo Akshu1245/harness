@@ -1,0 +1,15 @@
+# Reuse before rebuild (stars and licence checked live 2026-11-12 via search results)
+| Component | Candidate | Stars | Licence | Decision |
+|---|---|---|---|---|
+| Coding-agent core | SWE-agent/mini-swe-agent | 9,567 | MIT | candidate for coder runtime; not yet integrated |
+| Agent framework | langchain-ai/deepagents | 31,233 | MIT | candidate; heavy dependency, not yet integrated |
+| Full agent platform | OpenHands/OpenHands | 93,306 | MIT | reference; too large to embed |
+| Terminal pair-coder | Aider-AI/aider | 50,072 | Apache-2.0 | reference |
+| LLM routing | lm-sys/RouteLLM | 5,697 | Apache-2.0 | candidate for the cost router baseline |
+| Provider proxy/budgets | BerriAI/litellm | n/a here | check repo (mixed: enterprise dir is separate) | verify licence before use |
+| Evals | promptfoo/promptfoo | 27,076 | MIT | candidate for calibration and regression evals |
+| Bounty scope parsing | root4loot/rescope | 331 | MIT | candidate for importing program scopes |
+| Spec + fresh reviewers | google/elephant-goldfish-model | 17,820 | Apache-2.0 | pattern reimplemented in rashi/egm.py |
+| Decision router | NandhaKishorM/laya | n/a | Apache-2.0 | first-preference router, measured |
+| IDE front door | deepseek-ai/deepseek-harness | n/a | MIT | pin a commit; plugin pending |
+Excluded: OpenJev (CC BY-NC, not commercial-safe).
