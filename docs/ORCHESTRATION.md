@@ -17,6 +17,9 @@ written (rashi/rules.py, wired into the planner/coder/reviewer prompts).
   - `assign` round-robins tasks over ready agents; no ready agent -> `NO_AGENT_AVAILABLE`.
   - `run_tasks` gives each task its OWN subdirectory (two agents never edit the same tree) and
     closes it with `loop.run_loop`: DONE_VERIFIED only when the task's checks exit 0.
+- `rashi/build.py` - the one-press entry: detect fleet -> spec gate (human approval stays a hard
+  gate) -> planner splits the spec into independent tasks (unparsable split falls back to one
+  task) -> distribute -> DONE_VERIFIED only when every task verifies.
 - `rashi/rules.py` - the standing ponytail (smallest complete change) and no-ai-slop rules,
   distilled from the two repos he sent (both MIT), wired into `rashi/roles.py`.
 

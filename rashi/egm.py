@@ -37,14 +37,33 @@ def extract_checks(spec_text):
     return [{"id": f"c{i+1}", "cmd": c} for i, c in enumerate(cmds)]
 
 
+# Commands that execute a file directly: the file must exist beforehand or the check can never
+# pass. Creation assertions like `test -f app.py` are fine on missing files - absence is the point.
+_RUNNERS = ("python", "python3", "pytest", "sh", "bash", "node", "ruby", "pip")
+_OPS = {"|", "||", "&&", ";", "|&"}
+
+
 def invalid_checks(checks, workdir):
-    """Findings for checks that name files which do not exist. A check on a missing file can never pass."""
+    """Findings for checks that execute files which do not exist. A file token is 'executed' when
+    it follows a runner (python/pytest/sh/...) anywhere before a shell operator, or sits in command
+    position itself (./run.sh). Creation assertions like `test -f app.py` name no runner, so a
+    missing file is fine there - absence is what the check asserts."""
     out = []
     for c in checks:
-        for tok in re.findall(r"[\w./-]+\.\w+", c["cmd"]):
-            if "/" in tok or tok.endswith((".py", ".sh", ".js")):
-                if not (Path(workdir) / tok).exists():
-                    out.append({"severity": "high", "issue": f"check {c['id']} references missing file {tok}",
+        toks = c["cmd"].split()
+        runner_seen = False
+        for i, tok in enumerate(toks):
+            if tok in _OPS:
+                runner_seen = False
+                continue
+            if tok in _RUNNERS or tok.rsplit("/", 1)[-1] in _RUNNERS:
+                runner_seen = True
+                continue
+            if not (runner_seen or i == 0 or toks[i - 1] in _OPS):
+                continue
+            for m in re.findall(r"[\w./-]+\.\w+", tok):
+                if ("/" in m or m.endswith((".py", ".sh", ".js"))) and not (Path(workdir) / m).exists():
+                    out.append({"severity": "high", "issue": f"check {c['id']} executes missing file {m}",
                                 "evidence": c["cmd"]})
     return out
 
