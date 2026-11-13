@@ -3,8 +3,8 @@
 in minimal Python - no DSH code. Linux + bubblewrap only.
 
 Off by default. Enable per run with spec["sandbox"]=True or RASHI_SANDBOX=1. If bwrap is
-missing, checks run unsandboxed and the run SAYS so once - a requested sandbox that is not
-there is never a silent no-op. Verified live 2026-11-13 (bubblewrap 0.6.1): workdir writable,
+missing, the run stops before checks or agents execute. A requested sandbox never falls
+back to unsandboxed execution. Verified live 2026-11-13 (bubblewrap 0.6.1): workdir writable,
 /etc read-only, network unreachable."""
 import os
 import shutil
@@ -19,7 +19,7 @@ def wrap_argv(workdir, net=False):
     net=False unshares the network namespace (checks should not phone home)."""
     args = ["bwrap", "--ro-bind", "/", "/", "--dev", "/dev", "--unshare-pid",
             "--proc", "/proc", "--die-with-parent", "--tmpfs", "/tmp",
-            "--bind", str(workdir), str(workdir)]
+            "--bind", os.path.abspath(workdir), os.path.abspath(workdir)]
     if not net:
         args.append("--unshare-net")
     return args

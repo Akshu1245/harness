@@ -159,7 +159,10 @@ def run_loop(spec, agent, state_path=None):
         if _sandbox.available():
             sandbox_argv = _sandbox.wrap_argv(wd, net=bool(spec.get("sandbox_net")))
         else:
-            emit(wd, "warn", what="sandbox requested but bwrap not available; checks run unsandboxed")
+            status = "FAILED_SANDBOX_UNAVAILABLE"
+            emit(wd, "status", status=status, iters=0)
+            Path(state_path).write_text(json.dumps({"status": status, "goal": spec["goal"], "log": log}))
+            return status, log
     protected = spec.get("protected", [])
     base = digest(wd, protected)
     absent = [p for p in protected if not (Path(wd) / p).exists()]

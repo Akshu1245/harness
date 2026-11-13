@@ -26,7 +26,7 @@ TOOLS = [
      "description": "Intake: one batch of clarifying questions for an idea (needs a free provider key).",
      "inputSchema": {"type": "object", "properties": {"idea": {"type": "string"}}, "required": ["idea"]}},
     {"name": "rashi_build",
-     "description": "One press: brainstorm, spec, approve (--yes), distribute to ready CLI agents, verify by exit codes (needs a free provider key).",
+     "description": "Build is disabled in this transport until spec review/approval is supported. Use the Rashi CLI.",
      "inputSchema": {"type": "object", "properties": {"goal": {"type": "string"}, "dir": {"type": "string"}},
                      "required": ["goal", "dir"]}},
 ]
@@ -58,15 +58,17 @@ def call_tool(name, args):
         if name == "rashi_ask":
             from .intake import questions
             return questions(make_llm(provider, model, key), str(args.get("idea", ""))), False
-        from .build import one_press
-        result = one_press(str(args["goal"]), str(args["dir"]), make_llm(provider, model, key),
-                           lambda spec, findings: True)
-        return json.dumps(result, indent=2, default=str), result["status"] != "DONE_VERIFIED"
+        # This minimal transport cannot yet show a generated spec and collect approval.
+        # Refuse implementation instead of silently approving the spec on the caller's behalf.
+        return "Build requires spec review in the Rashi CLI; MCP build is disabled pending an approval handshake.", True
     return f"unknown tool: {name}", True
 
 
 def handle(msg):
     """One JSON-RPC message -> response dict, or None for notifications."""
+    if not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0" or not isinstance(msg.get("method"), str):
+        return {"jsonrpc": "2.0", "id": None,
+                "error": {"code": -32600, "message": "invalid request"}}
     mid = msg.get("id")
     method = msg.get("method")
     if method == "initialize":

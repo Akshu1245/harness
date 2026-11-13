@@ -22,7 +22,7 @@ export function apply(ctx: Context) {
     description:
       'Run the Rashi harness. mode=fleet: detect installed agent CLIs and their readiness. ' +
       'mode=ask: one batch of clarifying intake questions for an idea (goal required). ' +
-      'mode=build: one press - research, plan, distribute to ready CLI agents, verify by exit codes ' +
+      'mode=build: disabled pending spec review/approval support ' +
       '(goal and workdir required; needs a free provider key such as KENARI_API_KEY in the environment).',
     parameters: {
       mode: { type: 'string', required: true, description: 'fleet | ask | build' },
@@ -33,7 +33,6 @@ export function apply(ctx: Context) {
       schema: { type: 'string' },
       render: (_args, value) => [{ type: 'text', text: value }],
     },
-    timeoutMs: 900_000, // builds run long; cooperative deadline, enforced by DSH timeout policy
     async execute(args) {
       const mode = String(args.mode)
       let argv: string[]
@@ -43,14 +42,14 @@ export function apply(ctx: Context) {
         if (!args.goal) throw new Error('rashi ask needs goal')
         argv = ['ask', String(args.goal)]
       } else if (mode === 'build') {
-        if (!args.goal || !args.workdir) throw new Error('rashi build needs goal and workdir')
-        argv = ['build', String(args.goal), String(args.workdir), '--yes']
+        throw new Error('Build needs spec approval; use the Rashi CLI until this adapter supports a review handshake.')
       } else {
         throw new Error(`unknown rashi mode: ${mode} (use fleet | ask | build)`)
       }
       try {
         const { stdout, stderr } = await execFileAsync(RASHI_CMD, argv, {
           maxBuffer: 8 * 1024 * 1024,
+          timeout: 120_000,
           env: process.env,
         })
         const out = (stdout + (stderr ? `\n[stderr]\n${stderr}` : '')).trim()

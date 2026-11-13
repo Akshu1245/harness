@@ -44,3 +44,19 @@ def test_ask_without_key_is_an_honest_error(monkeypatch):
         monkeypatch.delenv(v, raising=False)
     text, is_error = mcp_server.call_tool("rashi_ask", {"idea": "x"})
     assert is_error and "no free provider key" in text
+
+
+def test_mcp_build_never_auto_approves_spec(monkeypatch):
+    from rashi import __main__ as m
+    from rashi import build
+    monkeypatch.setattr(m, 'find_llm', lambda: ('kenari','glm-4-7-flash:free','k'))
+    monkeypatch.setattr(build, 'one_press', lambda *a, **kw: (_ for _ in ()).throw(AssertionError('must not run')))
+    text, err = mcp_server.call_tool('rashi_build', {'goal':'g','dir':'.'})
+    assert err and 'approval' in text
+
+
+def test_invalid_json_values_do_not_crash_server():
+    r = roundtrip([None, [], 1, {'jsonrpc':'2.0','id':1},
+                   {'jsonrpc':'2.0','id':2,'method':'ping'}])
+    assert all(e['error']['code'] == -32600 for e in r[:4])
+    assert r[-1]['result'] == {}

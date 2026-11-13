@@ -7,22 +7,34 @@ from .loop import changed_since, emit, run_loop, snapshot
 from .memory import recall
 from .repomap import map_dir
 from .router import route
+from .tracing import span
 
 
 def run_pipeline(goal, workdir, llm, agent, approve, protected=(), laya=None, log_path=None, max_iters=6):
+    """Whole run wrapped in a root span; phases below are its children (B10)."""
     Path(workdir).mkdir(parents=True, exist_ok=True)
-    role, rec = route(goal, laya=laya, log_path=log_path)
+    with span(workdir, "run", goal=goal[:80]) as run:
+        return _run_pipeline(goal, workdir, llm, agent, approve, run.id, protected=protected,
+                             laya=laya, log_path=log_path, max_iters=max_iters)
+
+
+def _run_pipeline(goal, workdir, llm, agent, approve, run_id, protected=(), laya=None,
+                  log_path=None, max_iters=6):
+    with span(workdir, "route", parent=run_id):
+        role, rec = route(goal, laya=laya, log_path=log_path)
     emit(workdir, "route", role=role, decider=rec["decider"], rules_role=rec["rules_role"])
     past = recall(workdir)  # R29: what this workdir already learned
     ctx = map_dir(workdir) + ("\n\nMEMORY FROM EARLIER RUNS:\n" + past if past else "")
-    spec, findings, checks = egm.spec_gate(llm, goal, workdir, context=ctx)
+    with span(workdir, "spec_gate", parent=run_id):
+        spec, findings, checks = egm.spec_gate(llm, goal, workdir, context=ctx)
     if not approve(spec, findings):
         return {"status": "SPEC_NOT_APPROVED", "role": role, "findings": findings}
     if not checks:
         return {"status": "NO_CHECKS_IN_SPEC", "role": role, "findings": findings}
     before = snapshot(workdir)
-    status, log = run_loop({"goal": goal, "checks": checks, "protected": list(protected),
-                            "workdir": workdir, "max_iters": max_iters}, agent)
+    with span(workdir, "run_loop", parent=run_id):
+        status, log = run_loop({"goal": goal, "checks": checks, "protected": list(protected),
+                               "workdir": workdir, "max_iters": max_iters}, agent)
     # Deterministic scope check: files the agent touched that the spec never named. Advisory,
     # like review findings; exit codes still decide DONE. PROGRESS.json is the loop's own state.
     # shortcut: declared scope = every backticked path plus every file token in check commands,

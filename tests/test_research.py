@@ -28,8 +28,8 @@ def test_fetch_failure_is_honest_not_fatal():
 
 def test_rate_limit_page_is_an_error_not_empty_success():
     r = oss_alternatives("x", fetcher=lambda url: '{"message": "API rate limit exceeded"}')
-    assert r["results"] == []  # no items key -> nothing found, and context says so
-    assert "found nothing" in as_context(r)
+    assert r["results"] == [] and r["error"] == "API rate limit exceeded"
+    assert "FAILED" in as_context(r)
 
 
 def test_context_lists_stars():

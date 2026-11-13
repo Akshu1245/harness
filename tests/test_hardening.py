@@ -135,13 +135,13 @@ def test_sandboxed_check_cannot_touch_outside_workdir(tmp_path):
     assert code == 0 and (tmp_path / "inside.txt").exists()
 
 
-def test_sandbox_requested_without_bwrap_warns_not_silent(tmp_path, monkeypatch):
-    import json as _json
+def test_sandbox_requested_without_bwrap_fails_closed(tmp_path, monkeypatch):
     from rashi import sandbox
     from rashi.loop import run_loop
     monkeypatch.setattr(sandbox, "available", lambda: False)
+    calls = []
     spec = {"goal": "g", "workdir": str(tmp_path), "sandbox": True, "max_iters": 1,
-            "checks": [{"id": "c1", "cmd": "true"}]}
-    assert run_loop(spec, lambda g, f, w: None)[0] == "DONE_VERIFIED"
-    events = [_json.loads(l) for l in (tmp_path / "events.jsonl").read_text().splitlines()]
-    assert any(e.get("kind") == "warn" and "unsandboxed" in e.get("what", "") for e in events)
+            "checks": [{"id": "c1", "cmd": "touch unsafe-check.txt"}]}
+    assert run_loop(spec, lambda *args: calls.append(args))[0] == "FAILED_SANDBOX_UNAVAILABLE"
+    assert calls == []
+    assert not (tmp_path / "unsafe-check.txt").exists()

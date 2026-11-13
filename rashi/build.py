@@ -57,6 +57,15 @@ def split_tasks(llm, spec_text, fallback_checks):
 
 def one_press(goal, base_dir, llm, approve, agents=None, fleet_results=None, max_iters=6,
               research=None):
+    from .tracing import span
+    Path(base_dir).mkdir(parents=True, exist_ok=True)
+    with span(base_dir, "one_press", goal=goal[:80]):
+        return _one_press(goal, base_dir, llm, approve, agents=agents,
+                          fleet_results=fleet_results, max_iters=max_iters, research=research)
+
+
+def _one_press(goal, base_dir, llm, approve, agents=None, fleet_results=None, max_iters=6,
+               research=None):
     """research: optional callable topic -> context text (e.g. research.as_context(oss_alternatives(..)));
     its findings are prepended to the brainstorm context (his rule: reuse OSS before building)."""
     """The full flow. agents/fleet_results injectable; real run uses fleet.detect_all()."""

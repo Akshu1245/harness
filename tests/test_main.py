@@ -197,6 +197,16 @@ def test_council_members_need_key_and_model(monkeypatch):
 def test_council_members_env_override_and_openrouter_opt_in(monkeypatch):
     from rashi import __main__ as m
     maker = lambda provider, model, key: (provider, model)
-    env = {"OPENROUTER_API_KEY": "k", "RASHI_COUNCIL_MODEL_OPENROUTER": "some/free-model"}
-    assert m.council_members(env=env, maker=maker) == {"openrouter/some/free-model": ("openrouter", "some/free-model")}
+    env = {"OPENROUTER_API_KEY": "k", "RASHI_COUNCIL_MODEL_OPENROUTER": "some/model:free"}
+    assert m.council_members(env=env, maker=maker) == {"openrouter/some/model:free": ("openrouter", "some/model:free")}
     assert m.council_members(env={"OPENROUTER_API_KEY": "k"}, maker=maker) == {}  # no default: opt in only
+
+
+def test_council_refuses_paid_override_before_client_creation():
+    import pytest
+    from rashi import __main__ as m
+    called = []
+    with pytest.raises(ValueError, match="refuses non-free"):
+        m.council_members(env={"OPENROUTER_API_KEY": "k", "RASHI_COUNCIL_MODEL_OPENROUTER": "paid/model"},
+                          maker=lambda *args: called.append(args))
+    assert called == []

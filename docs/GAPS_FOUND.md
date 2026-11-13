@@ -1,3 +1,17 @@
+# Current verification corrections
+
+The product is partially built. Older entries below record implementation milestones, not full product acceptance.
+
+- DSH: plugin composition is verified, not full model-to-tool execution. Build is now disabled in DSH and MCP until a generated-spec review/approval handshake exists. No unconditional approval.
+- Council: fake-member tests pass; a real 16-model debate has not run. Model overrides now reject non-free identifiers before client creation. A free identifier alone is not a guarantee of future provider pricing.
+- Sandbox: if requested but bwrap is missing, stop before agents or checks. No unsandboxed fallback. Only check commands use this profile; CLI agents are NOT confined by it. The read-only system mount does not hide private readable files.
+- Tracing: measured the real loop, not an empty block. Root spans close on errors/early returns. Local JSONL only, no Langfuse export.
+- Research: GitHub API candidates are discovery only, not vetted recommendations. Error-shaped API responses now report failure instead of "nothing found".
+- MCP: malformed JSON values now return invalid-request errors without crashing.
+- Rollback/resume remain partial: deletion recovery, bounded memory, symlink containment, persistent spec identity and full resume feedback need further hardening before safety claims.
+
+Tests: regressions cover fail-closed sandbox, paid override rejection, no auto-approval through MCP/DSH, real loop event containment and exception spans, malformed MCP requests and search API errors.
+
 # Gaps found and fixed
 
 Running list (his instruction 2026-11-13 10:52pm): gaps the old plan or earlier prompts skipped,

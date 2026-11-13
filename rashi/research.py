@@ -29,6 +29,9 @@ def oss_alternatives(topic, fetcher=fetch, max_results=5):
         data = json.loads(fetcher(API + urllib.parse.quote(query)))
     except Exception as ex:  # offline / rate-limited / bad JSON: say so, return nothing
         return {"query": query, "results": [], "error": f"{type(ex).__name__}: {str(ex)[:120]}"}
+    if not isinstance(data, dict) or not isinstance(data.get("items"), list):
+        message = data.get("message", "invalid search response") if isinstance(data, dict) else "invalid search response"
+        return {"query": query, "results": [], "error": str(message)[:120]}
     results = [{"name": it.get("full_name", "?"), "url": it.get("html_url", ""),
                 "stars": it.get("stargazers_count", 0),
                 "description": (it.get("description") or "")[:140]}

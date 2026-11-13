@@ -3,7 +3,7 @@
 Experimental multi-model coding harness. Status: **early prototype**. This README lists only what exists in the code today.
 
 ## What works now (tested, see `tests/`)
-- `rashi/loop.py`: a verified loop. A task is DONE only when its check commands exit 0. The model's own claim of "done" is ignored. Protected files (specs, tests) are hash-checked every iteration and after the checks run; changing them fails the run. State is written to `PROGRESS.json`; an interrupted run resumes from it. A step that breaks a previously-passing check is rolled back from a per-step stash (`.rashi/rollback/`). Stops on max iterations or time. Every run writes what happened (done/rollback/stall) to `.rashi/memory.jsonl` and the next brainstorm/spec in that workdir reads it back as context. Checks can run sandboxed (bwrap: read-only system, writable workdir, no network) with `sandbox: True` or RASHI_SANDBOX=1.
+- `rashi/loop.py`: a verified loop. A task is DONE only when its check commands exit 0. The model's own claim of "done" is ignored. Protected files (specs, tests) are hash-checked every iteration and after the checks run; changing them fails the run. State is written to `PROGRESS.json`; a matching-goal unfinished run can continue from it (resume identity/feedback hardening remains). A regression can restore modified files and remove additions from a per-step stash; deleted-file recovery and containment hardening remain incomplete. Stops on max iterations or time. Every run writes what happened (done/rollback/stall) to `.rashi/memory.jsonl` and the next brainstorm/spec in that workdir reads it back as context. Checks can run sandboxed (bwrap: read-only system, writable workdir, no network) with `sandbox: True` or RASHI_SANDBOX=1.
 - `rashi/fleet.py` + `rashi/orchestrate.py` + `rashi/build.py`: detects installed agent CLIs (Codex, Claude Code, OpenCode, Aider, Factory Droid, Gemini), tests readiness and prints fixes, then one press (`build.one_press`) specs, splits, and distributes tasks across ready agents - each task verified by the loop in its own subdirectory. See `docs/ORCHESTRATION.md`.
 - `rashi/rules.py`: the ponytail (smallest complete change) and no-ai-slop rules, always consulted by the planner/coder/reviewer prompts.
 - `rashi/llm_agent.py`: edit step through any OpenAI-compatible gateway. Free-tier gateways only by default; a paid model on your own key is an explicit opt-in (`RASHI_ALLOW_PAID=1` / `allow_paid=True`), refused otherwise. Writes are confined to the work directory and cannot touch protected paths.
@@ -48,3 +48,7 @@ Model IDs differ per gateway; list them with the gateway's `/v1/models` before u
 
 ## License
 MIT. See `LICENSE`.
+
+## Verification limits
+
+The product is partially built. The DSH plugin has a composition check, not a full UI-to-build proof. DSH and MCP builds are disabled until they support explicit generated-spec approval. CLI-agent invocation templates remain unverified against real installations. Council has offline fake-member tests, not a verified 16-model run. Research finds candidates; it does not vet them. Optional bwrap applies to checks only, is not a secrets-isolation boundary, and fails closed when requested but unavailable. Tracing is local JSONL, not hosted telemetry. See docs/GAPS_FOUND.md for current corrections.

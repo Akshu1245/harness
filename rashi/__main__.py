@@ -45,6 +45,12 @@ def council_members(env=os.environ, maker=None):
         key = env.get(var)
         model = env.get(f"RASHI_COUNCIL_MODEL_{provider.upper()}") or COUNCIL_MODELS.get(provider)
         if key and model:
+            check = FREE_ONLY_MODELS.get(provider)
+            # Council never opts into paid models, even if another command permits them.
+            # Legacy gateway overrides must still use an explicitly free model marker.
+            free = check(model) if check else (model.startswith("free/") or model.endswith(":free"))
+            if not free:
+                raise ValueError(f"council refuses non-free model for {provider}: {model}")
             members[f"{provider}/{model}"] = maker(provider, model, key)
     return members
 
