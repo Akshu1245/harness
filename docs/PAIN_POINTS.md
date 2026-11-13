@@ -317,3 +317,95 @@ Same ground rules: every claim links its source; observed vs inferred is labeled
 | Rubber stamps (19) | One approval at spec level; per-action prompts rejected by design | Document the approval-latency signal for the war room |
 | Rollback needs reasoning (20) | Per-iteration log records prompt + diff + check results | Nothing new now |
 | Handoff > router (21) | Split prompts carry task context | Sibling changed-file lists into merge review (still queued from pass 2) |
+
+---
+
+# Fourth pass, 2026-11-13 (user voice on Reddit; X and Instagram unreadable without login)
+
+Platform coverage, stated plainly: Reddit threads below were actually read via web fetch
+(quoted comments are verbatim, usernames kept). X (twitter.com/x.com) returned zero
+search-index results and its content is login-gated; public mirrors (nitter) are dead.
+Instagram is likewise login-gated and is not a venue where AI-IDE complaints surface in
+search. Neither platform could be read without an account, so nothing here claims to
+represent them.
+
+## Ranked pains (pass 4)
+
+### 22. Confident misreporting: "done, works great" while broken
+- Observed (read): r/vibecoding top answer, 16 points: "The confident lying has to be
+  it for me... Saying X will definitely work, but it literally doesn't" (spill62).
+  Same thread: "'your task is done! Everything should work perfectly fine now. This is
+  what I did and why it's so great' - then I try the result and everything is broken
+  or half-working" (Savings-Giraffe-4007); "the AI's hallucinate with what they fixed"
+  (dschwags)
+  (https://www.reddit.com/r/vibecoding/comments/1rrr5bm/whats_your_biggest_frustration_when_using_ai/).
+- Inferred: user-voice confirmation of pass-1 pain 3 (false completion). The fix is
+  the same: a claim is evidence only when an exit code backs it. Our per-iteration
+  changed-file digests also mean a claim can be checked against what actually changed.
+
+### 23. AI-written tests need rework every single time
+- Observed (read): "every LLM is 100x better at writing code than tests... EVERY single
+  time the AI writes a test, I have to ask it to refactor it" (Andreas_Moeller, 9
+  points, same thread).
+- Inferred: practitioners arrived at TestSuiteBench's result (pain 17) before the
+  benchmark did. Weak checks are a felt daily pain, not an academic one - the
+  falsifiability gate answers exactly this.
+
+### 24. Confident security mistakes in compiling code
+- Observed (read): "Definitely the confident security mistakes. It will write
+  perfectly compiling code that happens to leave your database wide open"
+  (DiscussionHealthy802, same thread).
+- Inferred: exit-code checks verify behavior, not safety. A security smell check
+  (dangerous patterns refuse DONE) is a check class we do not have yet.
+
+### 25. Agents are blind to visual correctness
+- Observed (read): "agents are still pretty horrible at analyzing images... if the
+  instructions are too vague they will just fake it/hallucinate an agreeable answer"
+  (austinthrowaway4949); debugging pain where "the back end may be working but there
+  are elements that are hiding its front end visual progress" (dschwags, same thread).
+- Inferred: for UI work, a screenshot is the check. We already verify our own visual
+  work with headless Chrome; the harness has no screenshot-as-check primitive yet.
+
+### 26. Silent hangs and tool instability wear users down
+- Observed (read): r/windsurf daily-driver thread - a model "running for about 55
+  minutes... no progress, no output, no meaningful indication"; a commenter diagnosed
+  his own 40-minute hang as "stuck waiting on a file indexing call that silently
+  timed out" and fixed it by "splitting the task into smaller prompts with explicit
+  exit conditions" (pbalIII); another: "having the same problem and eating all my
+  credits" (TheTinyMaker)
+  (https://www.reddit.com/r/windsurf/comments/1qvn8l7/done_with_windsurf_it_used_to_be_my_daily_driver/).
+- Observed (read): r/cursor heavy-user thread - stuck statuses, subagents waiting on
+  invisible prompts, lost turns, duplicated messages, "zombie CLI processes started by
+  agents not cleaned up"
+  (https://www.reddit.com/r/cursor/comments/1vx3s4d/getting_fed_up_with_cursor_ide_bugs_is_the_grass/).
+- Inferred: this is pass-1 pain 6 in the users' own words, plus the fix shape they
+  found themselves: explicit exit conditions. Our per-command timeouts + STALLED badge
+  + a hung-CLI regression test (built this pass) are the same answer.
+
+### 27. Plans become walls of text the user cannot review
+- Observed (read): "the plan and implementation become walls of text and I can't
+  comprehend it. I think there needs to be a more visual way for us to communicate
+  with the agent" (FocusKontrol, r/AIcodingProfessionals thread)
+  (https://www.reddit.com/r/AIcodingProfessionals/comments/1vp6b1e/what_still_genuinely_sucks_about_ai_coding_agents/).
+- Inferred: pairs with pass-3 pain 19 (approval without comprehension is a rubber
+  stamp). The spec shown for approval must stay short and structured enough to
+  actually be read.
+
+### 28. Tools assume the user is already an expert
+- Observed (read): "When you act like you know what you're doing it assumes you're
+  both a programmer and a genius"; a Qwen "simple explanation" used "atomicity" four
+  times (absolutenobody, r/vibecoding thread).
+- Inferred: audience-matching is a harness responsibility in every user-facing
+  surface (specs, errors, war room). Noted; not a build item for the core loop.
+
+## What pass 4 means for the harness (inferred)
+
+| Pain | Our answer today | Gap to build |
+|---|---|---|
+| Confident misreporting (22) | Exit codes decide DONE; digests record what actually changed | Nothing new - pass-1 answer holds |
+| Weak AI tests (23) | Falsifiability gate (built pass 3) | Mutation testing of checks stays on the roadmap |
+| Security mistakes (24) | Key scan on the repo itself | A security-smell check class (dangerous patterns refuse DONE) |
+| Visual blindness (25) | Headless-Chrome verification used by US on our own UI work | screenshot-as-check primitive for UI tasks |
+| Silent hangs (26) | Timeouts everywhere; STALLED badge; hung-CLI regression test (built this pass) | Nothing new now |
+| Walls of text (27) | Spec approval is one short structured document | Keep specs short; measure, not built |
+| Expert assumptions (28) | Plain-language docs rule | Not core-loop work |

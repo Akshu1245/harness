@@ -110,3 +110,19 @@ def test_run_tasks_passes_sibling_changes_to_later_tasks(tmp_path):
     assert res == {"t1": "DONE_VERIFIED", "t2": "DONE_VERIFIED"}
     assert "Sibling tasks" not in seen_goals[0]
     assert "t1: helpers.py" in seen_goals[1]
+
+
+def test_hung_cli_agent_is_killed_and_recorded_not_done(tmp_path):
+    """Pass 4 (Reddit pain 26): users report agents hanging 40-55 minutes on a silently
+    stuck call. A hung CLI here is killed at its timeout, recorded as an agent error,
+    and the run ends STOPPED - never DONE, never a zombie."""
+    import time
+    sleepy = _fake_cli(tmp_path, "sleepycli", "#!/bin/sh\nsleep 30\n")
+    tasks = [{"id": "t1", "goal": "g", "checks": [{"id": "C1", "cmd": "test -f out.txt"}]}]
+    t0 = time.time()
+    res = orchestrate.run_tasks(tasks, {"slow": orchestrate.CliAgent([str(sleepy)], timeout=1)},
+                                tmp_path / "run", max_iters=1)
+    assert time.time() - t0 < 10  # the hang was cut, not waited out
+    assert res["t1"] != "DONE_VERIFIED"
+    progress = (tmp_path / "run" / "t1" / "PROGRESS.json").read_text()
+    assert "TimeoutExpired" in progress or "STOPPED" in progress
