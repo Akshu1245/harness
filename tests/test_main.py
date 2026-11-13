@@ -184,3 +184,19 @@ def test_bench_security_scan_refuses_done_for_dangerous_output(tmp_path, monkeyp
     assert rc == 1
     rows = [j.loads(r) for r in out.read_text().splitlines()]
     assert rows[0]["status"] == "FAILED_SECURITY_SMELLS"  # checks passed; safety refused
+
+
+def test_council_members_need_key_and_model(monkeypatch):
+    from rashi import __main__ as m
+    maker = lambda provider, model, key: (provider, model)
+    env = {"KENARI_API_KEY": "k1", "APINEX_API_KEY": "k2", "RESPAN_API_KEY": ""}
+    members = m.council_members(env=env, maker=maker)
+    assert set(members) == {"kenari/glm-4-7-flash:free", "apinex/free/qwen-3.8-max"}
+
+
+def test_council_members_env_override_and_openrouter_opt_in(monkeypatch):
+    from rashi import __main__ as m
+    maker = lambda provider, model, key: (provider, model)
+    env = {"OPENROUTER_API_KEY": "k", "RASHI_COUNCIL_MODEL_OPENROUTER": "some/free-model"}
+    assert m.council_members(env=env, maker=maker) == {"openrouter/some/free-model": ("openrouter", "some/free-model")}
+    assert m.council_members(env={"OPENROUTER_API_KEY": "k"}, maker=maker) == {}  # no default: opt in only

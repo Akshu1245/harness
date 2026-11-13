@@ -3,6 +3,15 @@
 Running list (his instruction 2026-11-13 10:52pm): gaps the old plan or earlier prompts skipped,
 found by audits / mutation testing / live runs / fresh-env runs, each with proof. Newest first.
 
+## 2026-11-13 11pm - R9 council
+1. **R9 multi-model debate + vote missing from the package.** The old root scripts
+   (run_rashi_council.py, run_architecture_council.py) polled gateways once and dumped JSON -
+   not reusable, not testable, dotenv-dependent. Fixed: rashi/council.py (independent answers,
+   anonymized peer vote, no self-votes, deterministic tally, sick members excluded and recorded,
+   advisory only) + `rashi council "question"` CLI with per-gateway free-model members
+   (non-Kenari defaults marked UNVERIFIED until a live run). Proof: tests/test_council.py (5),
+   tests/test_main.py (2).
+
 ## 2026-11-13 11pm (archive gap list B-items)
 1. **B6 resume missing.** An interrupted run restarted from zero. Fixed: run_loop resumes from
    PROGRESS.json when goal matches and status is unfinished; emits `resumed`. Proof:

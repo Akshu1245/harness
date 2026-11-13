@@ -25,6 +25,7 @@ KENARI_API_KEY=... rashi bench   # live benchmark on a free model (free gateways
 rashi ask "idea"                 # one batch of clarifying questions before a build
 rashi warroom /tmp/rashi-bench   # live event-stream UI for a run directory
 rashi drift spec.md .              # EGM drift report: spec paths missing from the code (exit 1 on drift)
+rashi council "question"          # debate + vote across configured free gateways (advisory)
 ```
 Develop from a clone:
 ```bash

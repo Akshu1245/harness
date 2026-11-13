@@ -6,6 +6,7 @@
     python -m rashi bench                 # run the fixed benchmark tasks on a free model
     python -m rashi warroom DIR [port]    # live event stream UI for a run
     python -m rashi drift SPEC DIR        # EGM drift report: spec paths missing from the code
+    python -m rashi council "question"    # debate + vote across your configured free gateways
 
 `build`/`bench` need one free provider key in the environment (KENARI_API_KEY first,
 then the other free gateways); the coding in `build` is done by the CLI agents fleet
@@ -27,6 +28,23 @@ from .loop import run_loop
 KEY_ENV = {"kenari": "KENARI_API_KEY", "explabs": "EXPLABS_API_KEY", "apinex": "APINEX_API_KEY",
            "respan": "RESPAN_API_KEY", "openrouter": "OPENROUTER_API_KEY"}
 DEFAULT_MODEL = {"kenari": "glm-4-7-flash:free"}  # flash-class: proven in the loop, fits timeouts
+# Council member per gateway. Non-Kenari defaults come from his 2026-11-12 council scripts and are
+# UNVERIFIED until a live council run; override with RASHI_COUNCIL_MODEL_<PROVIDER>.
+COUNCIL_MODELS = {"kenari": "glm-4-7-flash:free", "respan": "respan/gemini-4-carbon:free",
+                  "explabs": "claude-fable-5.2:free", "apinex": "free/qwen-3.8-max"}
+
+
+def council_members(env=os.environ, maker=None):
+    """{member_name: llm} for every gateway with both a key and a free model. OpenRouter joins
+    only when its model is named explicitly (its free set changes)."""
+    maker = maker or make_llm
+    members = {}
+    for provider, var in KEY_ENV.items():
+        key = env.get(var)
+        model = env.get(f"RASHI_COUNCIL_MODEL_{provider.upper()}") or COUNCIL_MODELS.get(provider)
+        if key and model:
+            members[f"{provider}/{model}"] = maker(provider, model, key)
+    return members
 
 
 def find_llm(env=os.environ):
@@ -72,6 +90,9 @@ def main(argv=None):
     d = sub.add_parser("drift", help="compare a spec/design doc with the code tree; exit 1 on drift")
     d.add_argument("spec")
     d.add_argument("dir")
+    c = sub.add_parser("council", help="debate + vote across configured free gateways; advisory")
+    c.add_argument("question")
+    c.add_argument("--out", default="council_result.json")
     bn = sub.add_parser("bench", help="fixed benchmark tasks on a free model; appends results JSONL")
     bn.add_argument("--tasks", default=str(Path(__file__).resolve().parent / "data" / "tasks.json"))
     bn.add_argument("--out", default="benchmarks/results.jsonl")
@@ -81,6 +102,21 @@ def main(argv=None):
 
     if args.cmd == "fleet":
         print(report(detect_all()))
+        return 0
+    if args.cmd == "council":
+        from .council import debate
+        members = council_members()
+        if len(members) < 2:
+            print("council needs at least two configured gateways "
+                  "(set KENARI_API_KEY / RESPAN_API_KEY / EXPLABS_API_KEY / APINEX_API_KEY ...)")
+            return 2
+        result = debate(members, args.question)
+        Path(args.out).write_text(json.dumps(result, indent=2))
+        print(f"members: {', '.join(members)}")
+        print(f"winner: {result['winner']}" if result["winner"] else "no majority (see votes in the file)")
+        if result["errors"]:
+            print(f"errors/abstentions: {result['errors']}")
+        print(f"full record: {args.out} (advisory - never auto-executed)")
         return 0
     if args.cmd == "drift":
         from .egm import drift_report
