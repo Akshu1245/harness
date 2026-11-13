@@ -65,6 +65,18 @@ def check_token(authorization):
     if not authorization or not secrets.compare_digest(authorization, f"Bearer {RUNNER_TOKEN}"):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+# Keep in sync with rashi/netguard.py (source of truth). This file stays single-file for Colab.
+_BLOCKED_NETS = tuple(ipaddress.ip_network(n) for n in ("fc00::/7", "fec0::/10", "100.64.0.0/10"))
+
+def _ip_blocked(ip) -> bool:
+    if (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+            or ip.is_multicast or ip.is_unspecified):
+        return True
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        return _ip_blocked(mapped)
+    return any(ip in n for n in _BLOCKED_NETS)
+
 def url_is_public(url: str) -> bool:
     """Allow only http(s) URLs whose host resolves to public IPs."""
     p = urlparse(url)
@@ -75,10 +87,9 @@ def url_is_public(url: str) -> bool:
     except OSError:
         return False
     for info in infos:
-        ip = ipaddress.ip_address(info[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+        if _ip_blocked(ipaddress.ip_address(info[4][0])):
             return False
-    return True
+    return bool(infos)
 
 
 @app.get("/health")
@@ -105,6 +116,14 @@ async def browser_navigate(req: BrowserNavRequest, authorization: str = Header(d
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
+            # Re-check every subrequest and redirect target: a public URL may redirect to an
+            # internal one, and the initial-URL check alone would miss it (redirect SSRF).
+            async def _block_internal(route):
+                if url_is_public(route.request.url):
+                    await route.continue_()
+                else:
+                    await route.abort()
+            await page.route("**/*", _block_internal)
             await page.goto(req.url, timeout=30000)
             title = await page.title()
             screenshot_b64 = None

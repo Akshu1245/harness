@@ -1,5 +1,5 @@
 """Edit step backed by an OpenAI-compatible gateway. Free-tier only by design."""
-import json, re, time
+import json, os, re, tempfile, time
 from pathlib import Path
 from openai import OpenAI
 
@@ -36,7 +36,10 @@ class SpendGate:
         if n >= self.per_day:
             raise RuntimeError(f"daily free-call cap reached for {provider} ({self.per_day}/day)")
         data.setdefault("calls", {})[provider] = n + 1
-        self.path.write_text(json.dumps(data))
+        fd, tmp = tempfile.mkstemp(dir=str(self.path.parent))  # atomic write: a crash mid-write
+        with os.fdopen(fd, "w") as f:                         # must never corrupt the counter
+            f.write(json.dumps(data))
+        os.replace(tmp, self.path)
 
 
 FILE_RE = re.compile(r"FILE:\s*(\S+)\s*\n```[a-zA-Z0-9]*\n(.*?)```", re.S)

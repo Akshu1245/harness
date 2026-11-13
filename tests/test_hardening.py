@@ -104,3 +104,17 @@ def test_scope_userinfo_port_case_and_trailing_dot():
     assert s.allows("https://API.EX.COM./")[0]
     assert not s.allows("https://ex.com/")[0]
     assert not s.allows("https://ex.com.evil.com/")[0]
+
+
+# SpendGate: cap enforcement, day rollover, corrupt-state recovery
+def test_spend_gate_cap_rollover_and_corrupt_file(tmp_path):
+    from rashi.llm_agent import SpendGate
+    g = SpendGate(tmp_path / ".spend.json", per_day=2)
+    g.check("kenari"); g.check("kenari")
+    with pytest.raises(RuntimeError):
+        g.check("kenari")
+    g.check("apinex")  # cap is per provider
+    (tmp_path / ".spend.json").write_text("{corrupt")
+    g.check("kenari")  # corrupt state recovers to a fresh day instead of crashing
+    data = json.loads((tmp_path / ".spend.json").read_text())
+    assert data["calls"] == {"kenari": 1}
