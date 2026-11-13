@@ -91,3 +91,22 @@ def test_roles_consult_standing_rules():
     assert "Smallest complete change" in roles.ROLES["planner"]["system"]
     assert "No AI slop" in roles.ROLES["reviewer"]["system"]
     assert "delve" in roles.ROLES["reviewer"]["system"]
+
+
+def test_run_tasks_passes_sibling_changes_to_later_tasks(tmp_path):
+    """ACM EXPRESS'26 (pass 3, pain 10): telling the next task what earlier siblings
+    changed recovers most pass-alone/fail-together runs. The second task's goal must
+    name the files the first one touched; the first task's goal stays clean."""
+    import pathlib
+    seen_goals = []
+
+    def agent(goal, fb, wd):
+        seen_goals.append(goal)
+        (pathlib.Path(wd) / "helpers.py").write_text("def shout(s):\n    return s.upper()\n")
+
+    tasks = [{"id": "t1", "goal": "make helpers", "checks": [{"id": "C1", "cmd": "true"}]},
+             {"id": "t2", "goal": "use helpers", "checks": [{"id": "C1", "cmd": "true"}]}]
+    res = orchestrate.run_tasks(tasks, {"a": agent}, tmp_path / "run")
+    assert res == {"t1": "DONE_VERIFIED", "t2": "DONE_VERIFIED"}
+    assert "Sibling tasks" not in seen_goals[0]
+    assert "t1: helpers.py" in seen_goals[1]

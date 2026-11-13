@@ -14,7 +14,7 @@ on his laptop; fleet.report tells him which agents are ready before anything is 
 import subprocess
 from pathlib import Path
 
-from .loop import run_loop
+from .loop import changed_since, run_loop, snapshot
 
 # Non-interactive invocation per CLI. UNVERIFIED until probed live; fix from each CLI's docs.
 CLI_TEMPLATES = {
@@ -61,10 +61,14 @@ def assign(tasks, agents):
 
 def run_tasks(tasks, agents, base_dir, max_iters=6, timeout=600):
     """tasks: [{id, goal, checks, protected?}]. agents: {name: argv list, CliAgent, or any
-    loop-compatible callable agent(goal, feedback, workdir) - e.g. llm_agent.make_agent(...)}."""
+    loop-compatible callable agent(goal, feedback, workdir) - e.g. llm_agent.make_agent(...)}.
+    Each task runs in its own workdir. After each task, the files it changed are passed
+    to later tasks as sibling context - ACM EXPRESS'26 measured that a message describing
+    the completed concurrent change recovers 82% of pass-alone/fail-together runs."""
     base = Path(base_dir)
     results = {}
     plan = assign(tasks, agents)
+    sibling_changes = {}
     for t in tasks:
         name = plan.get(t["id"])
         if name is None:
@@ -75,8 +79,18 @@ def run_tasks(tasks, agents, base_dir, max_iters=6, timeout=600):
             agent = CliAgent(agent, timeout=timeout)
         wd = base / t["id"]
         wd.mkdir(parents=True, exist_ok=True)
-        spec = {"goal": t["goal"], "workdir": str(wd), "protected": t.get("protected", []),
+        goal = t["goal"]
+        if sibling_changes:
+            ctx = "\n".join(f"- {tid}: {', '.join(files)}" for tid, files in sibling_changes.items())
+            goal += ("\n\nSibling tasks in this build already changed these files; if your work "
+                     "interacts with them, match their interfaces instead of reinventing them:\n" + ctx)
+        before = snapshot(wd)
+        spec = {"goal": goal, "workdir": str(wd), "protected": t.get("protected", []),
                 "checks": t["checks"], "max_iters": max_iters}
         status, _ = run_loop(spec, agent)
         results[t["id"]] = status
+        changed = changed_since(before, wd)["changed"]
+        changed = [c for c in changed if c not in ("PROGRESS.json", "events.jsonl")]
+        if changed:
+            sibling_changes[t["id"]] = changed
     return results
