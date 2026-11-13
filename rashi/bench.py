@@ -15,6 +15,9 @@ def load_tasks(path):
     tasks = json.loads(Path(path).read_text())
     assert all(t.get("id") and t.get("goal") and isinstance(t.get("checks"), list) for t in tasks), \
         "each benchmark task needs id, goal and checks"
+    for t in tasks:  # optional fields, validated when present
+        assert isinstance(t.get("seed", {}), dict), f"{t['id']}: seed must be {{path: content}}"
+        assert isinstance(t.get("protected", []), list), f"{t['id']}: protected must be a list"
     return tasks
 
 

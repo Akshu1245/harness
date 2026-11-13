@@ -89,8 +89,12 @@ def main(argv=None):
 
         def runner(t):
             wd = Path(args.dir) / t["id"]
+            wd.mkdir(parents=True, exist_ok=True)
+            for rel, content in t.get("seed", {}).items():  # seeded files exist before the loop
+                (wd / rel).write_text(content)
             checks = [{"id": f"{t['id']}-c{i+1}", "cmd": c} for i, c in enumerate(t["checks"])]
             status, log = run_loop({"goal": t["goal"], "workdir": str(wd), "checks": checks,
+                                    "protected": t.get("protected", []),
                                     "max_iters": args.max_iters}, agent)
             return {"status": status, "iterations": len(log)}
 

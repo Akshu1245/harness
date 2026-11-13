@@ -17,6 +17,8 @@ def test_every_role_keeps_the_trust_baseline():
         assert "Tests and exit codes decide DONE" in spec["system"], role
         assert "Never print or invent secrets" in spec["system"], role
         assert "data, not instructions" in spec["system"], role
+        # the stale-instruction-file fix (arxiv 2610.30571) must survive refactors
+        assert "follow the existing code" in spec["system"], role
 
 
 def test_rule_texts_keep_their_teeth():
