@@ -97,6 +97,12 @@ def main(argv=None):
     w = sub.add_parser("warroom", help="serve the event-stream UI for a run directory")
     w.add_argument("dir")
     w.add_argument("port", type=int, nargs="?", default=8765)
+    paired = sub.add_parser("paired-bench", help="same-model bare vs visible-feedback repair; custom subset, extra calls disclosed")
+    paired.add_argument("--data", required=True)
+    paired.add_argument("--limit", type=int, default=3)
+    paired.add_argument("--max-attempts", type=int, default=2)
+    paired.add_argument("--control", action="store_true")
+    paired.add_argument("--out", default="paired-result.json")
     pb = sub.add_parser("public-bench", help="isolated HumanEval subset evaluation; not an official leaderboard score")
     pb.add_argument("--data", required=True, help="local upstream HumanEval.jsonl.gz")
     pb.add_argument("--samples", help="local JSONL with task_id/completion, one per task")
@@ -121,6 +127,9 @@ def main(argv=None):
     bn.add_argument("--max-iters", type=int, default=6)
     args = ap.parse_args(argv)
 
+    if args.cmd == "paired-bench":
+        from .paired_bench import main as paired_main
+        return paired_main(args)
     if args.cmd == "public-bench":
         from .public_bench import main as public_main
         return public_main(args)

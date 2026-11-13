@@ -117,3 +117,7 @@ found by audits / mutation testing / live runs / fresh-env runs, each with proof
 
 - Model-supplied task IDs were used directly as filesystem paths. The whole batch is now validated before any agent step: simple bounded directory names only, no duplicates, no pre-existing symlink task directory. Two regression tests verify refusal before execution.
 - Additional DSH evidence: loaded the actual plugin through the pinned DSH checkout's TypeScript runtime and real `defineTool`, captured its registered tool, and invoked `fleet`. The Python CLI ran and honestly reported all six CLIs absent here. This verifies adapter execution without an LLM; it is not live DSH model-driven dispatch, UI proof or build approval support.
+
+## Paired same-model study, 2026-11-13 11:25pm
+
+Added `paired-bench`: shared initial completion, bare vs bounded prompt-visible execution repair, optional independent-sampling budget control. Official hidden tests used only after final candidate selection. Fixed denominators, samples/errors/call counts, per-task wins/losses and signed lift are recorded. Four tests include real doctest execution. Source vetting and limitations: PAIRED_LIFT.md. Offline calibration is not a measured model lift; real free-model comparison is pending.
