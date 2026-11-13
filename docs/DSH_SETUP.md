@@ -1,6 +1,10 @@
 # DSH front door: verified install (2026-11-13)
 
-`scripts/install_dsh.sh` reproduces all of this on his laptop.
+Historical setup evidence below, not the current installer behavior. The current
+`scripts/install_dsh.sh` is local-only: it does not install the box plugin, ask for a box
+key or create/use cloud resources. See [LOCAL_INSTALL.md](LOCAL_INSTALL.md). Its clean Linux
+install, compiled-plugin execution and real UI boot were verified on 2026-11-14. Phone pairing,
+a branded EXE/APK and full model-driven goal completion are not proved by that install.
 
 ## Pins and digests (checked live against GitHub and npm)
 

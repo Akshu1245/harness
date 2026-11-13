@@ -14,8 +14,16 @@ Experimental multi-model coding harness. Status: **early prototype**. This READM
 - `rashi_cloud_runner.py`: cloud browser worker. Needs a bearer token, binds to localhost, and only fetches public http(s) URLs.
 - `rakshex-core/`: Rust prototype of a daily spend breaker and model catalog. **The breaker is not connected to anything yet** and the websocket telemetry is demo data.
 
-## Not built yet (roadmap)
-Sandboxed code execution, repo map, rollback per step, multi-round model debate with voting, live war-room data, DeepSeek Harness plugin front end, Android app, voice, research agent, memory. Earlier drafts of this README claimed Redis checkpoints, Docker deployment, "20+ frontier models" and self-healing loops: those did not exist and were removed.
+## Still partial or not built
+
+Full coding-agent sandbox isolation, verified model-role/default selection, real-model DSH/UI
+completion, a branded EXE/APK release, phone pairing on the user's hardware, live voice, and a
+production backend remain unverified or not built. Repo map, bounded rollback/resume, advisory
+council, local memory, public-benchmark adapters and the DSH/MCP tool bridges exist; their limits
+are listed below and in `docs/GAPS_FOUND.md`. No whole-product readiness claim.
+
+For the local DSH browser UI with Rashi pre-wired, use the [developer installer](docs/LOCAL_INSTALL.md):
+`bash scripts/install_dsh.sh`. It creates no cloud resource and makes no model call.
 
 ## Install and run it
 ```bash

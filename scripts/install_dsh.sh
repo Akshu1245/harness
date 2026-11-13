@@ -1,39 +1,49 @@
 #!/usr/bin/env bash
-# Install the DSH front door: DeepSeek Harness (pinned), the Simular box plugin
-# (sha256-verified), and dsh-mobile (pinned). Verified end to end 2026-11-13 in a
-# clean Linux sandbox (Node 22, npm): dsh web booted and served its auth-gated UI.
-# Zero cost: everything here is free; the Simular box is on the free plan.
+# Local-only developer installer. No cloud resource, model call, key prompt or public listener.
 set -euo pipefail
-
-# Pin manifest (verified live against GitHub + npm, 2026-11-13; see docs/DSH_SETUP.md)
-DSH_VERSION=0.2.2-rc.3        # == github.com/deepseek-ai/deepseek-harness @ 39163dd30f703a79079e2d2446545cff3c453738
-DSH_MOBILE_VERSION=0.8.8      # == github.com/saya-ch/dsh-mobile @ 1616b43b61c7b22c170da1dc1eccdc4053c0cfbd
-BOX_TGZ_URL=https://github.com/simular-ai/box-plugin/releases/download/dsh-v0.2.1/dsh-box.tgz
-BOX_TGZ_SHA256=bbc79df73954d08e86d9c17ace40a8c751e7f8c0fa0b2a55bbfb3a0830b05235
-
-mkdir -p dsh-host && cd dsh-host
-npm init -y
-npm install "@deepseek-ai/dsh@$DSH_VERSION" --no-audit --no-fund
-
-curl -sL -o /tmp/dsh-box.tgz "$BOX_TGZ_URL"
-echo "$BOX_TGZ_SHA256  /tmp/dsh-box.tgz" | sha256sum -c -
-
-npx dsh plugin --profile web add /tmp/dsh-box.tgz
-npx dsh plugin --profile web add "dsh-mobile@$DSH_MOBILE_VERSION"
-
-# dsh-mobile's setup CLI imports @deepseek-ai/cordis, an OPTIONAL peer dependency that
-# pnpm does not install into the profile; the dsh runtime provides it at boot but
-# `dsh plugin exec` does not. Link the copy installed with dsh so `setup` resolves it.
-DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
-ln -sfn "$(pwd)/node_modules/@deepseek-ai/cordis" "$DSH_HOME/profiles/web/node_modules/@deepseek-ai/cordis"
-
-# Personal box key (cb_...) from https://box.simular.ai/access. The "harness" box
-# (cb-61047bdfc05f, created 2026-11-13, free plan) already lives on that account.
-# Never commit the key; it stays in this shell's environment only.
-read -r -s -p "BOX_TOKEN (cb_...): " BOX_TOKEN; export BOX_TOKEN; echo
-
-npx dsh web   # prints a tokenised http://127.0.0.1:3080 URL; open it in a browser
-
-# Phone pairing, run on the computer the phone should reach (needs an active LAN;
-# exits with "no active private LAN address" otherwise):
-#   npx dsh plugin --profile web exec dsh-mobile setup
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+TARGET=${1:-"$HOME/.local/share/rashi-harness"}
+if [ "$#" -gt 1 ] || [ "$TARGET" = --help ]; then
+  printf '%s\n' 'Usage: bash scripts/install_dsh.sh [empty-install-directory]' 'Requires Python 3.10+, Node 22.18+ and npm. Installs locally; does not start DSH.'
+  exit 0
+fi
+command -v python3
+command -v node
+command -v npm
+python3 -c 'import sys; assert sys.version_info >= (3,10), "Python 3.10+ required"'
+node -e 'const [a,b]=process.versions.node.split(".").map(Number);if(a<22||(a===22&&b<18))throw Error("Node 22.18+ required")'
+# Never overwrite an existing installation or the caller's own files.
+if [ -e "$TARGET" ]; then
+  printf '%s\n' 'Install directory already exists. Choose a new empty path; nothing was changed.' >&2
+  exit 1
+fi
+mkdir -p -- "$TARGET"
+TARGET=$(cd -- "$TARGET" && pwd)
+printf '%s\n' 'rashi-local-installer-v1' > "$TARGET/.rashi-install"
+python3 -m venv "$TARGET/venv"
+"$TARGET/venv/bin/python" -m pip install "$ROOT"
+mkdir -- "$TARGET/dsh-host"
+printf '%s\n' '{"name":"rashi-local-host","version":"0.1.0","private":true,"type":"module"}' > "$TARGET/dsh-host/package.json"
+(cd -- "$TARGET/dsh-host" && npm install --ignore-scripts --no-audit --no-fund --save-exact '@deepseek-ai/dsh@0.2.2-rc.3')
+node "$ROOT/scripts/build_dsh_plugin.mjs" "$TARGET/dsh-host/rashi-plugin"
+python3 - "$TARGET" "$(command -v node)" <<'LAUNCHERPY'
+import json
+from pathlib import Path
+import shlex
+import sys
+root=Path(sys.argv[1])
+(root/'overlay.yml').write_text('- id: workspace-controller\n  config:\n    documentsDirectory: '+json.dumps(str(root/'projects'))+
+                               '\n- insert:\n    - id: rashi\n      name: '+json.dumps(str(root/'dsh-host/rashi-plugin/rashi-plugin.mjs'))+'\n')
+quote=lambda p:shlex.quote(str(p))
+launcher=('#!/usr/bin/env bash\nset -euo pipefail\n'
+          'export RASHI_CMD='+quote(root/'venv/bin/rashi')+'\n'
+          'export DSH_HOME='+quote(root/'profile')+'\n'
+          'exec '+quote(sys.argv[2])+' '+quote(root/'dsh-host/node_modules/@deepseek-ai/dsh/lib/bin.js')+
+          ' web --patch '+quote(root/'overlay.yml')+' "$@"\n')
+(root/'start-rashi.sh').write_text(launcher)
+(root/'start-rashi.sh').chmod(0o700)
+LAUNCHERPY
+"$TARGET/venv/bin/rashi" fleet
+printf '%s\n' 'Local developer installation finished. No model or cloud call was made.'
+printf 'Start the local DSH UI with: %q\n' "$TARGET/start-rashi.sh"
+printf '%s\n' 'Model credentials are still yours to configure. Coding CLIs must be installed separately.' 'This is not a branded EXE/APK release; it is the pinned DSH UI with the Rashi tool.'

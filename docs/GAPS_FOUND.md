@@ -139,3 +139,15 @@ Added `paired-bench`: shared initial completion, bare vs bounded prompt-visible 
   deterministic agent, not a model or real UI. Free-provider live completion awaits quota reset.
 - MCP source: https://modelcontextprotocol.io/specification/2025-11-25/client/elicitation
   and https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation
+
+
+## Local installer correction, 2026-11-14 12:12am
+
+The old installer fetched a cloud plugin, asked for a cloud token and did not install the actual
+Rashi adapter. Replaced with a local-only developer installer: isolated Python environment,
+pinned DSH npm package, plain-ESM adapter emission and private-profile launcher. It refuses an
+existing target rather than overwriting it. No cloud, secret prompt or model call. A new Linux
+install succeeded and the installed plugin executed fleet. UI testing exposed a missing
+`xdg-user-dir` default-workspace failure; a scoped DSH `documentsDirectory` override now creates
+projects inside the chosen install directory. The actual browser was rechecked after the fix.
+This is not an EXE/APK or a branding pass. Full model-driven UI completion is still pending.
