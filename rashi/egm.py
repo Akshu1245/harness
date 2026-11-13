@@ -17,6 +17,11 @@ ELEPHANT_SYS = ("You draft a software spec. Output markdown with sections: Goal,
 GOLDFISH_SYS = ("You are a fresh reviewer with no prior context. Review ONLY the spec and files given. "
                 "Reply with JSON only: {\"findings\":[{\"severity\":\"high|med|low\",\"issue\":str,"
                 "\"evidence\":str}]}. Flag unstated assumptions, untestable requirements, missing checks.")
+BRIEF_SYS = ("You hold the project context. Turn the idea into a concept brief. Output markdown with "
+             "sections: Problem, Proposed direction, Trade-offs, Open questions. Be concrete. " + NEVER_LIE)
+CHALLENGE_SYS = ("You are a fresh reviewer with no prior context. Challenge ONLY the concept brief given. "
+                 "Reply with JSON only: {\"findings\":[{\"severity\":\"high|med|low\",\"issue\":str,"
+                 "\"evidence\":str}]}. Flag unstated assumptions, fuzzy goals, missing constraints.")
 PATH_RE = re.compile(r"`([\w./-]+\.\w+)`")
 CHECK_RE = re.compile(r"^\s*[-*]\s*`([^`]+)`\s*$", re.M)
 
@@ -74,13 +79,11 @@ def invalid_checks(checks, workdir):
     return out
 
 
-def goldfish_review(llm, spec_text, workdir):
-    """Fresh context: only the spec and referenced files are passed. One JSON-strictness retry:
-    the live flash-model run (2026-11-13) answered with prose once; a reminder fixed the shape."""
-    refs = "".join(f"\n--- {r} ---\n{t}" for r, t in referenced_files(spec_text, workdir))
-    user = f"SPEC:\n{spec_text}\n\nREFERENCED FILES:{refs or ' (none)'}"
+def _findings_from(llm, system, user):
+    """Two-attempt JSON findings call: free-tier models sometimes answer prose; one reminder
+    fixes the shape (live run 2026-11-13). Unparsable twice = one high finding, never a crash."""
     for attempt in range(2):
-        raw = llm(GOLDFISH_SYS, user if attempt == 0 else
+        raw = llm(system, user if attempt == 0 else
                   "Your last reply was not parseable. Reply with JSON only, nothing else.\n\n" + user)
         m = re.search(r"\{.*\}", raw, re.S)
         try:
@@ -90,6 +93,29 @@ def goldfish_review(llm, spec_text, workdir):
         if isinstance(findings, list):
             return [f for f in findings if isinstance(f, dict) and "issue" in f]
     return [{"severity": "high", "issue": "reviewer output unparsable", "evidence": raw[:200]}]
+
+
+def brainstorm(llm, goal, context=""):
+    """EGM brainstorm: elephant turns the idea into a concept brief with full project context,
+    a fresh goldfish challenges it, elephant revises once on high findings. The caller saves the
+    brief as concepts_brief.md (EGM's layout). Returns (brief, challenge_findings)."""
+    ask = f"Project context:\n{context[:6000]}\n\nIdea: {goal}"
+    brief = llm(BRIEF_SYS, ask)
+    if not brief.strip():  # same empty-reply failure mode as draft_spec
+        brief = llm(BRIEF_SYS, ask + "\n\nYour previous reply was empty. Write the brief now.")
+    findings = _findings_from(llm, CHALLENGE_SYS, "BRIEF:\n" + brief)
+    if any(f.get("severity") == "high" for f in findings):
+        brief = llm(BRIEF_SYS, "Revise this brief to resolve these findings. Keep the sections.\n"
+                    "BRIEF:\n" + brief + "\nFINDINGS:\n" + json.dumps(findings))
+    return brief, findings
+
+
+def goldfish_review(llm, spec_text, workdir):
+    """Fresh context: only the spec and referenced files are passed. One JSON-strictness retry:
+    the live flash-model run (2026-11-13) answered with prose once; a reminder fixed the shape."""
+    refs = "".join(f"\n--- {r} ---\n{t}" for r, t in referenced_files(spec_text, workdir))
+    user = f"SPEC:\n{spec_text}\n\nREFERENCED FILES:{refs or ' (none)'}"
+    return _findings_from(llm, GOLDFISH_SYS, user)
 
 
 def drift_report(spec_text, workdir):

@@ -24,6 +24,7 @@ rashi fleet                      # which agent CLIs are ready on this machine
 KENARI_API_KEY=... rashi bench   # live benchmark on a free model (free gateways only)
 rashi ask "idea"                 # one batch of clarifying questions before a build
 rashi warroom /tmp/rashi-bench   # live event-stream UI for a run directory
+rashi drift spec.md .              # EGM drift report: spec paths missing from the code (exit 1 on drift)
 ```
 Develop from a clone:
 ```bash
@@ -32,6 +33,7 @@ python -m pytest -q tests        # the test suite
 python -m rashi fleet            # which agent CLIs are installed and ready
 python -m rashi build "build X" workdir   # one press: spec -> approve -> distribute -> verify
 python -m rashi warroom workdir  # live event stream UI on http://127.0.0.1:8765
+python -m rashi drift spec.md workdir   # spec-vs-code drift report, no key needed
 ```
 `build` needs one free provider key in the environment (KENARI_API_KEY first) for spec drafting; the coding is done by the CLI agents `fleet` found ready.
 

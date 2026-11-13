@@ -36,3 +36,17 @@ def test_event_log_records_route_iter_status(tmp_path):
 def test_failing_check_never_done(tmp_path):
     r = run_pipeline("g", str(tmp_path), llm, lambda g, f, wd: None, lambda s, f: True, max_iters=2)
     assert r["status"] == "STOPPED_MAX_ITERS"
+
+
+def test_pipeline_emits_drift_event(tmp_path):
+    """After the loop, the drift report lands in the result and (when drifted) events.jsonl."""
+    import json as _json
+    (tmp_path / "ok.py").write_text("")
+    def llm(system, user):
+        if "fresh reviewer" in system:
+            return '{"findings":[]}'
+        return "Goal\nFiles\n- `ok.py`\n- `ghost.py`\nChecks\n- `test -f ok.py`\n"
+    r = run_pipeline("g", str(tmp_path), llm, lambda g, f, wd: None, lambda s, f: True)
+    assert r["drift"]["drifted"] and "ghost.py" in r["drift"]["missing_paths"]
+    events = [_json.loads(l) for l in (tmp_path / "events.jsonl").read_text().splitlines()]
+    assert any(e.get("kind") == "drift" for e in events)

@@ -32,5 +32,8 @@ def run_pipeline(goal, workdir, llm, agent, approve, protected=(), laya=None, lo
     if scope["out_of_scope"]:
         emit(workdir, "scope", out_of_scope=scope["out_of_scope"])
     review = egm.goldfish_review(llm, spec, workdir) if status == "DONE_VERIFIED" else []
+    drift = egm.drift_report(spec, workdir)  # EGM drift report: what the spec named that build missed
+    if drift["drifted"]:
+        emit(workdir, "drift", missing=drift["missing_paths"])
     return {"status": status, "role": role, "spec_findings": findings, "review": review,
-            "scope": scope, "iters": len(log)}
+            "scope": scope, "drift": drift, "iters": len(log)}

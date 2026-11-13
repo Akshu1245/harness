@@ -1,0 +1,6 @@
+# DeepSeek Harness overlay that adds the Rashi tool. The plugin path must be absolute;
+# replace the path below with this file's location on your machine, then run:
+#   pnpm dsh web --patch /absolute/path/to/harness/dsh/cordis.yml
+- insert:
+    - id: rashi
+      name: '/absolute/path/to/harness/dsh/rashi-plugin.ts'

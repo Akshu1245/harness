@@ -6,6 +6,7 @@ and closes each by exit codes. Human approval of the spec stays a hard gate.
 """
 import json
 import re
+from pathlib import Path
 
 from . import egm
 from .fleet import detect_all, report as fleet_report
@@ -56,7 +57,10 @@ def one_press(goal, base_dir, llm, approve, agents=None, fleet_results=None, max
     """The full flow. agents/fleet_results injectable; real run uses fleet.detect_all()."""
     fleet_results = detect_all() if fleet_results is None and agents is None else (fleet_results or {})
     agents = agents if agents is not None else ready_agents(fleet_results)
-    spec, findings, checks = egm.spec_gate(llm, goal, base_dir)
+    Path(base_dir).mkdir(parents=True, exist_ok=True)
+    brief, brief_findings = egm.brainstorm(llm, goal)  # EGM brainstorm: brief before the spec
+    Path(base_dir, "concepts_brief.md").write_text(brief)
+    spec, findings, checks = egm.spec_gate(llm, goal, base_dir, context=brief)
     if not approve(spec, findings):
         return {"status": "SPEC_NOT_APPROVED", "findings": findings}
     if not checks:
@@ -66,6 +70,7 @@ def one_press(goal, base_dir, llm, approve, agents=None, fleet_results=None, max
         return {"status": "NO_READY_AGENTS", "fleet": fleet_report(fleet_results) if fleet_results else "",
                 "tasks": tasks, "split": how}
     results = run_tasks(tasks, agents, base_dir, max_iters=max_iters)
+    drift = egm.drift_report(spec, base_dir)  # EGM drift report: spec paths missing after the build
     return {"status": "DONE_VERIFIED" if all(s == "DONE_VERIFIED" for s in results.values()) else "INCOMPLETE",
-            "tasks": results, "split": how,
+            "tasks": results, "split": how, "drift": drift, "brief_findings": brief_findings,
             "fleet": fleet_report(fleet_results) if fleet_results else ""}

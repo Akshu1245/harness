@@ -5,6 +5,7 @@
                                           #   --answers FILE folds intake answers into the goal
     python -m rashi bench                 # run the fixed benchmark tasks on a free model
     python -m rashi warroom DIR [port]    # live event stream UI for a run
+    python -m rashi drift SPEC DIR        # EGM drift report: spec paths missing from the code
 
 `build`/`bench` need one free provider key in the environment (KENARI_API_KEY first,
 then the other free gateways); the coding in `build` is done by the CLI agents fleet
@@ -68,6 +69,9 @@ def main(argv=None):
     w = sub.add_parser("warroom", help="serve the event-stream UI for a run directory")
     w.add_argument("dir")
     w.add_argument("port", type=int, nargs="?", default=8765)
+    d = sub.add_parser("drift", help="compare a spec/design doc with the code tree; exit 1 on drift")
+    d.add_argument("spec")
+    d.add_argument("dir")
     bn = sub.add_parser("bench", help="fixed benchmark tasks on a free model; appends results JSONL")
     bn.add_argument("--tasks", default=str(Path(__file__).resolve().parent / "data" / "tasks.json"))
     bn.add_argument("--out", default="benchmarks/results.jsonl")
@@ -78,6 +82,11 @@ def main(argv=None):
     if args.cmd == "fleet":
         print(report(detect_all()))
         return 0
+    if args.cmd == "drift":
+        from .egm import drift_report
+        r = drift_report(Path(args.spec).read_text(), args.dir)
+        print(json.dumps(r, indent=2))
+        return 1 if r["drifted"] else 0
     if args.cmd == "warroom":
         from .warroom import serve
         print(f"war room on http://127.0.0.1:{args.port}/  (events: {args.dir}/events.jsonl)")

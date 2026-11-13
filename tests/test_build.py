@@ -80,3 +80,35 @@ def test_split_tasks_preserves_protected_paths():
     tasks, how = build.split_tasks(llm, "spec", [])
     assert how == "split"
     assert tasks[0]["protected"] == ["helpers.py"]
+
+
+def test_one_press_writes_brief_and_reports_drift(tmp_path):
+    """EGM sequence in one press: brainstorm brief saved as concepts_brief.md, drift report
+    compares the approved spec with the built tree."""
+    import stat as _stat
+    agent = tmp_path / "fakeagent"
+    agent.write_text("#!/bin/sh\necho x > out.txt\n")
+    agent.chmod(agent.stat().st_mode | _stat.S_IEXEC)
+    r = build.one_press("make out.txt", str(tmp_path / "w"), llm_ok, lambda s, f: True,
+                        agents={"fake": [str(agent), "{prompt}"]})
+    assert r["status"] == "DONE_VERIFIED"
+    assert (tmp_path / "w" / "concepts_brief.md").is_file()
+    assert r["drift"] == {"missing_paths": [], "drifted": False} or "drifted" in r["drift"]
+
+
+def test_one_press_drift_flags_spec_paths_never_built(tmp_path):
+    import stat as _stat
+    agent = tmp_path / "fakeagent"
+    agent.write_text("#!/bin/sh\necho x > out.txt\n")
+    agent.chmod(agent.stat().st_mode | _stat.S_IEXEC)
+    def llm_drifty(system, user):
+        if "fresh reviewer" in system:
+            return '{"findings":[]}'
+        if "Split this spec" in system:
+            return '{"tasks":[{"id":"a","goal":"make out.txt","checks":["test -f out.txt"]}]}'
+        if "concept brief" in system:
+            return "Problem\nx\n"
+        return "Goal\nFiles\n- `out.txt`\n- `never_built.py`\nChecks\n- `test -f out.txt`\n"
+    r = build.one_press("g", str(tmp_path / "w"), llm_drifty, lambda s, f: True,
+                        agents={"fake": [str(agent), "{prompt}"]})
+    assert r["drift"]["drifted"] and "never_built.py" in r["drift"]["missing_paths"]

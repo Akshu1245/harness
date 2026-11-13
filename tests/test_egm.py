@@ -77,3 +77,36 @@ def test_draft_spec_retries_an_empty_reply():
     from rashi.egm import draft_spec
     assert draft_spec(llm, "make x") == "Spec\n- `test -f x.py`"
     assert len(calls) == 2 and "previous reply was empty" in calls[1]
+
+
+def test_brainstorm_brief_then_challenge_revision():
+    """EGM brainstorm: elephant drafts a brief, fresh goldfish challenges it, elephant
+    revises once when the challenge has a high finding."""
+    calls = []
+    def llm(system, user):
+        calls.append(system)
+        if system == egm.CHALLENGE_SYS:
+            return '{"findings":[{"severity":"high","issue":"fuzzy goal","evidence":"no metric"}]}'
+        return "Problem\nx\n" if "Revise" not in user else "Problem\nx revised\n"
+    brief, findings = egm.brainstorm(llm, "idea")
+    assert brief.endswith("revised\n") and findings[0]["issue"] == "fuzzy goal"
+    assert calls == [egm.BRIEF_SYS, egm.CHALLENGE_SYS, egm.BRIEF_SYS]
+
+
+def test_brainstorm_keeps_brief_when_challenge_is_low():
+    def llm(system, user):
+        return '{"findings":[{"severity":"low","issue":"nit","evidence":""}]}' if system == egm.CHALLENGE_SYS \
+            else "Problem\nx\n"
+    brief, _ = egm.brainstorm(llm, "idea")
+    assert brief == "Problem\nx\n"
+
+
+def test_brainstorm_retries_empty_reply():
+    calls = []
+    def llm(system, user):
+        calls.append(user)
+        if system == egm.CHALLENGE_SYS:
+            return '{"findings":[]}'
+        return "" if len(calls) == 1 else "Problem\nx\n"
+    brief, _ = egm.brainstorm(llm, "idea")
+    assert brief == "Problem\nx\n" and "previous reply was empty" in calls[1]
