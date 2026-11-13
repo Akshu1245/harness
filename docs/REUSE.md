@@ -13,4 +13,10 @@
 | Decision router | NandhaKishorM/laya | n/a | Apache-2.0 | first-preference router, measured |
 | IDE front door | deepseek-ai/deepseek-harness | 280,228 | MIT | pinned at 39163dd30f703a79079e2d2446545cff3c453738 (master, 2026-11-13, dsh-0.2.2); plugin pending |
 | Android app | saya-ch/dsh-mobile | 846 | Apache-2.0 | pinned at 1616b43b61c7b22c170da1dc1eccdc4053c0cfbd (main, 2026-11-13); install pending his OK |
+| Minimal-diff coding rules | DietrichGebert/ponytail | 190,051 | MIT | rules distilled into rashi/rules.py (AGENTS.md, main, 2026-11-13); always consulted |
+| Anti-slop writing rules | petergyang/no-ai-slop | 13,452 | MIT | rules distilled into rashi/rules.py (SKILL.md, main, 2026-11-13); always consulted |
+| Multi-agent orchestrator UI | BloopAI/vibe-kanban | 28,673 | Apache-2.0 | reference for the front door; too large to embed |
+| Parallel CLI sessions (tmux) | brizzai/fleet | 61 | Apache-2.0 | reference; our fleet.py/orchestrate.py is the minimal in-repo version |
+| Multi-agent tmux system | yohey-w/multi-agent-shogun | 1,421 | MIT | reference |
+| Codex account switching | olliecrow/multicodex, 11ArkaN/codex-switcher | 0 / 0 | Apache-2.0 / ISC | UNVETTED, 0 stars; account rotation held for his decision (ToS risk flagged 2026-11-13) |
 Excluded: OpenJev (CC BY-NC, not commercial-safe).
