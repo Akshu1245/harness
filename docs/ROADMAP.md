@@ -23,6 +23,10 @@ decision or his hardware. Everything else is in motion under the existing grants
    iterations, failures), not one demo. Zero spend (Kenari free tier).
 3. **Run the test suite on the Simular box over MCP.** Proves the box works as a
    clean second machine and gives a fresh-environment install test.
+   Status: done 2026-11-13 - fresh clone on the box ran 81/81; it caught a real
+   import-time crash (engines built API clients even with no key set; fixed in
+   8afc83a). Box note: its image routes through a SOCKS proxy, so `pip install
+   socksio` is needed there before any OpenAI client can be constructed.
 4. **README quickstart that a stranger can run in 5 minutes.** Proves shippability;
    claims stay limited to what CI and MODELS.md show.
 5. **Dogfood: use one_press on a small real feature in this repo.** Proves the loop
@@ -36,6 +40,9 @@ decision or his hardware. Everything else is in motion under the existing grants
    built without his explicit decision.
 9. **DSH as the daily driver front door + phone pairing.** Needs him: run
    scripts/install_dsh.sh on his laptop, then dsh-mobile setup for LAN pairing.
+
+- A repeated-run benchmark on free models (item 2) and the dogfood run (item 5)
+  are next; both are zero-spend and need no approval.
 
 ## Explicitly not doing
 
