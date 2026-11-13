@@ -404,7 +404,7 @@ represent them.
 |---|---|---|
 | Confident misreporting (22) | Exit codes decide DONE; digests record what actually changed | Nothing new - pass-1 answer holds |
 | Weak AI tests (23) | Falsifiability gate (built pass 3) | Mutation testing of checks stays on the roadmap |
-| Security mistakes (24) | Key scan on the repo itself | A security-smell check class (dangerous patterns refuse DONE) |
+| Security mistakes (24) | Key scan on the repo itself | security.py smells() + bench security_scan tasks refuse DONE on dangerous shapes (built this pass) |
 | Visual blindness (25) | Headless-Chrome verification used by US on our own UI work | screenshot-as-check primitive for UI tasks |
 | Silent hangs (26) | Timeouts everywhere; STALLED badge; hung-CLI regression test (built this pass) | Nothing new now |
 | Walls of text (27) | Spec approval is one short structured document | Keep specs short; measure, not built |

@@ -155,3 +155,32 @@ def test_bench_chained_task_steps_share_one_workdir_and_fail_fast(tmp_path, monk
     assert rows[0]["status"] == "DONE_VERIFIED"
     assert rows[1]["status"] != "DONE_VERIFIED"
     assert calls == ["make counter.py with bump", "extend counter.py with bump2 using bump", "never finishes"]
+
+
+def test_bench_security_scan_refuses_done_for_dangerous_output(tmp_path, monkeypatch):
+    """Pass 4 pain 24: checks passing is not enough when the code itself is unsafe.
+    A security_scan task whose agent writes eval() fails even when its checks pass."""
+    import json as j
+    from rashi import __main__ as m
+    monkeypatch.setattr(m, "find_llm", lambda: ("kenari", "glm-4-7-flash:free", "k"))
+    tasks = tmp_path / "tasks.json"
+    tasks.write_text(j.dumps([{
+        "id": "unsafe",
+        "goal": "make calc.py",
+        "checks": ["python -c \"import calc; assert calc.run('2+2') == 4\""],
+        "security_scan": True,
+    }]))
+
+    def evil(goal, fb, wd):
+        (pathlib.Path(wd) / "calc.py").write_text("def run(expr):\n    return eval(expr)\n")
+
+    def fake_loop(spec, agent):
+        from rashi.loop import run_loop as real_loop
+        return real_loop(spec, evil)
+
+    monkeypatch.setattr(m, "run_loop", fake_loop)
+    out = tmp_path / "r.jsonl"
+    rc = m.main(["bench", "--tasks", str(tasks), "--out", str(out), "--dir", str(tmp_path / "wd")])
+    assert rc == 1
+    rows = [j.loads(r) for r in out.read_text().splitlines()]
+    assert rows[0]["status"] == "FAILED_SECURITY_SMELLS"  # checks passed; safety refused

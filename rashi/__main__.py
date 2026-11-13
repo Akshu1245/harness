@@ -104,6 +104,13 @@ def main(argv=None):
                 total_iters += len(log)
                 if status != "DONE_VERIFIED":
                     break  # a failed step ends the chain; later steps inherit broken code
+            # PAIN_POINTS pain 24: exit codes verify behavior, not safety. A task marked
+            # security_scan refuses DONE when the agent's output carries dangerous shapes.
+            if status == "DONE_VERIFIED" and t.get("security_scan"):
+                from .security import smells
+                found = smells(wd)
+                if found:
+                    status = "FAILED_SECURITY_SMELLS"
             return {"status": status, "iterations": total_iters}
 
         summary = benchmod.run_bench(tasks, runner, args.out)
