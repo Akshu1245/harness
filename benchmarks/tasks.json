@@ -23,5 +23,18 @@
     },
     "protected": ["helpers.py", "test_helpers.py"],
     "checks": ["python -c \"from greeter import greet; assert greet('bo') == 'HELLO BO!'\"", "python test_helpers.py | grep -qx 'OK'"]
+  },
+  {
+    "id": "bench-chain",
+    "steps": [
+      {
+        "goal": "Create counter.py with bump(n) returning n + 1.",
+        "checks": ["python -c \"from counter import bump; assert bump(1) == 2\""]
+      },
+      {
+        "goal": "counter.py already exists with bump(n). Extend it in place with bump2(n) returning bump(bump(n)), keeping bump working.",
+        "checks": ["python -c \"from counter import bump, bump2; assert bump(1) == 2 and bump2(1) == 3\""]
+      }
+    ]
   }
 ]

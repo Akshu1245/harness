@@ -49,13 +49,13 @@ def test_bench_command_wires_live_runner(tmp_path, monkeypatch, capsys):
     rc = m.main(["bench", "--out", str(out), "--dir", str(tmp_path / "wd")])
     assert rc == 0
     assert made["agent"] == ("kenari", "glm-4-7-flash:free", "k")
-    assert len(seen["specs"]) == 4  # one run_loop per benchmark task
+    assert len(seen["specs"]) == 6  # one run_loop per step; bench-chain has two
     assert all(s["checks"][0]["id"].endswith("-c1") for s in seen["specs"])
     guard = next(s for s in seen["specs"] if s["checks"][0]["id"].startswith("bench-guard"))
     assert guard["protected"] == ["helpers.py", "test_helpers.py"]
     assert (tmp_path / "wd" / "bench-guard" / "helpers.py").exists()  # seeded before the loop
     rows = out.read_text().splitlines()
-    assert len(rows) == 4 and all('"DONE_VERIFIED"' in r for r in rows)
+    assert len(rows) == 5 and all('"DONE_VERIFIED"' in r for r in rows)
     assert '"pass_rate": 1.0' in capsys.readouterr().out
 
 
@@ -108,3 +108,50 @@ def test_bench_without_key_exits_clean(capsys, monkeypatch):
     monkeypatch.setattr(m, "find_llm", lambda: None)
     assert m.main(["bench"]) == 2
     assert "No free provider key" in capsys.readouterr().err
+
+
+def test_bench_chained_task_steps_share_one_workdir_and_fail_fast(tmp_path, monkeypatch):
+    """Multi-step SWE shape (pass 3, pain 16): steps run in order in one workdir;
+    step 2 sees what step 1 built; a failed step ends the chain."""
+    import json as j
+    from rashi import __main__ as m
+    monkeypatch.setattr(m, "find_llm", lambda: ("kenari", "glm-4-7-flash:free", "k"))
+    tasks = tmp_path / "tasks.json"
+    tasks.write_text(j.dumps([{
+        "id": "chain",
+        "steps": [
+            {"goal": "make counter.py with bump",
+             "checks": ["python -c \"from counter import bump; assert bump(1) == 2\""]},
+            {"goal": "extend counter.py with bump2 using bump",
+             "checks": ["python -c \"from counter import bump2; assert bump2(1) == 3\""]},
+        ],
+    }, {
+        "id": "broken",
+        "steps": [
+            {"goal": "never finishes", "checks": ["false"]},
+            {"goal": "must never run", "checks": ["true"]},
+        ],
+    }]))
+
+    def builder(goal, fb, wd):
+        p = pathlib.Path(wd) / "counter.py"
+        if "bump2" in goal:
+            assert "def bump" in p.read_text()  # step 2 inherited step 1's code
+            p.write_text(p.read_text() + "\ndef bump2(n):\n    return bump(bump(n))\n")
+        else:
+            p.write_text("def bump(n):\n    return n + 1\n")
+
+    calls = []
+    def fake_loop(spec, agent):
+        calls.append(spec["goal"])
+        from rashi.loop import run_loop as real_loop
+        return real_loop(spec, builder if "counter" in spec["goal"] or "bump" in spec["goal"] else (lambda g, f, w: None))
+
+    monkeypatch.setattr(m, "run_loop", fake_loop)
+    out = tmp_path / "r.jsonl"
+    rc = m.main(["bench", "--tasks", str(tasks), "--out", str(out), "--dir", str(tmp_path / "wd")])
+    assert rc == 1  # the broken chain fails
+    rows = [j.loads(r) for r in out.read_text().splitlines()]
+    assert rows[0]["status"] == "DONE_VERIFIED"
+    assert rows[1]["status"] != "DONE_VERIFIED"
+    assert calls == ["make counter.py with bump", "extend counter.py with bump2 using bump", "never finishes"]

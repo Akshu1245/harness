@@ -92,11 +92,19 @@ def main(argv=None):
             wd.mkdir(parents=True, exist_ok=True)
             for rel, content in t.get("seed", {}).items():  # seeded files exist before the loop
                 (wd / rel).write_text(content)
-            checks = [{"id": f"{t['id']}-c{i+1}", "cmd": c} for i, c in enumerate(t["checks"])]
-            status, log = run_loop({"goal": t["goal"], "workdir": str(wd), "checks": checks,
-                                    "protected": t.get("protected", []),
-                                    "max_iters": args.max_iters}, agent)
-            return {"status": status, "iterations": len(log)}
+            # Multi-step SWE shape: steps run in order in ONE workdir, each graded by its
+            # own checks, so step k builds on whatever step k-1 left behind.
+            steps = t.get("steps") or [{"goal": t["goal"], "checks": t["checks"]}]
+            total_iters, status = 0, "DONE_VERIFIED"
+            for i, s in enumerate(steps):
+                checks = [{"id": f"{t['id']}-s{i+1}-c{j+1}", "cmd": c} for j, c in enumerate(s["checks"])]
+                status, log = run_loop({"goal": s["goal"], "workdir": str(wd), "checks": checks,
+                                        "protected": t.get("protected", []),
+                                        "max_iters": args.max_iters}, agent)
+                total_iters += len(log)
+                if status != "DONE_VERIFIED":
+                    break  # a failed step ends the chain; later steps inherit broken code
+            return {"status": status, "iterations": total_iters}
 
         summary = benchmod.run_bench(tasks, runner, args.out)
         print(json.dumps({"provider": provider, "model": model,

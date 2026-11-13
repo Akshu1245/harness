@@ -35,9 +35,10 @@ decision or his hardware. Everything else is in motion under the existing grants
    2026-11-13): stall signal, token-usage events, the stale-instruction-file fix in
    every role prompt, the seeded guarded benchmark task (bench-guard), and the
    falsifiability gate (every benchmark task must have a check that fails before any
-   work) are done; next are a chained two-step benchmark task (the Multi-step SWE
-   shape, tiny) and passing each parallel sibling's changed-file list into the merge
-   review (the ACM paper's 82% recovery move).
+   work), and the chained benchmark task (bench-chain: step 2 builds on step 1's code,
+   graded per step, a failed step ends the chain) are done; next is passing each
+   parallel sibling's changed-file list into the merge review (the ACM paper's 82%
+   recovery move).
 5. **Dogfood: use one_press on a small real feature in this repo.** Proves the loop
    on its own codebase; any crash found is fixed at the root (already happened once:
    the split-fallback bug).

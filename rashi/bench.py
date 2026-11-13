@@ -22,15 +22,19 @@ def falsifiable(task, workdir):
     wd.mkdir(parents=True, exist_ok=True)
     for rel, content in task.get("seed", {}).items():
         (wd / rel).write_text(content)
-    return [c for c in task["checks"]
+    steps = task.get("steps") or [{"checks": task.get("checks", [])}]
+    checks = [c for s in steps for c in s["checks"]]
+    return [c for c in checks
             if subprocess.run(c, shell=True, cwd=wd, capture_output=True, timeout=30).returncode != 0]
 
 
 def load_tasks(path):
     tasks = json.loads(Path(path).read_text())
-    assert all(t.get("id") and t.get("goal") and isinstance(t.get("checks"), list) for t in tasks), \
-        "each benchmark task needs id, goal and checks"
-    for t in tasks:  # optional fields, validated when present
+    for t in tasks:
+        assert t.get("id"), "each benchmark task needs an id"
+        steps = t.get("steps") or [{"goal": t.get("goal"), "checks": t.get("checks")}]
+        assert all(s.get("goal") and isinstance(s.get("checks"), list) for s in steps), \
+            f"{t['id']}: each step needs goal and checks"
         assert isinstance(t.get("seed", {}), dict), f"{t['id']}: seed must be {{path: content}}"
         assert isinstance(t.get("protected", []), list), f"{t['id']}: protected must be a list"
     return tasks

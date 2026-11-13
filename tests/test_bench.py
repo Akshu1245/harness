@@ -5,7 +5,7 @@ from rashi import bench
 
 def test_load_tasks_validates_shape(tmp_path):
     tasks = bench.load_tasks("benchmarks/tasks.json")
-    assert len(tasks) == 4 and all(t["checks"] for t in tasks)
+    assert len(tasks) == 5 and all(bench.falsifiable(t, tmp_path / t["id"]) for t in tasks)
     guard = next(t for t in tasks if t["id"] == "bench-guard")
     assert set(guard["seed"]) == set(guard["protected"])  # every seeded file is guarded
     bad_shape = tmp_path / "badseed.json"
