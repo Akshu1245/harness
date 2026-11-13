@@ -18,9 +18,9 @@ import requests
 
 load_dotenv()
 
-respan = OpenAI(base_url="https://gateway.respan.ai/v1", api_key=os.environ.get("RESPAN_API_KEY"))
-explabs = OpenAI(base_url="https://api.experientiallabs.ai/v1", api_key=os.environ.get("EXPLABS_API_KEY"))
-apinex = OpenAI(base_url="https://api.apinex.bond/v1", api_key=os.environ.get("APINEX_API_KEY"))
+respan = OpenAI(base_url="https://gateway.respan.ai/v1", api_key=os.environ.get("RESPAN_API_KEY")) if os.environ.get("RESPAN_API_KEY") else None
+explabs = OpenAI(base_url="https://api.experientiallabs.ai/v1", api_key=os.environ.get("EXPLABS_API_KEY")) if os.environ.get("EXPLABS_API_KEY") else None
+apinex = OpenAI(base_url="https://api.apinex.bond/v1", api_key=os.environ.get("APINEX_API_KEY")) if os.environ.get("APINEX_API_KEY") else None
 
 def run_adversarial_trial(topic: str, builder_cfg: dict, adversary_cfg: dict) -> dict:
     print(f"\n{'='*70}")

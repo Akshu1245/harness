@@ -23,9 +23,9 @@ RESPAN_KEY = os.environ.get("RESPAN_API_KEY")
 EXPLABS_KEY = os.environ.get("EXPLABS_API_KEY")
 APINEX_KEY = os.environ.get("APINEX_API_KEY")
 
-respan = OpenAI(base_url="https://gateway.respan.ai/v1", api_key=RESPAN_KEY)
-explabs = OpenAI(base_url="https://api.experientiallabs.ai/v1", api_key=EXPLABS_KEY)
-apinex = OpenAI(base_url="https://api.apinex.bond/v1", api_key=APINEX_KEY)
+respan = OpenAI(base_url="https://gateway.respan.ai/v1", api_key=RESPAN_KEY) if RESPAN_KEY else None
+explabs = OpenAI(base_url="https://api.experientiallabs.ai/v1", api_key=EXPLABS_KEY) if EXPLABS_KEY else None
+apinex = OpenAI(base_url="https://api.apinex.bond/v1", api_key=APINEX_KEY) if APINEX_KEY else None
 
 # Universal Model Registry & Cross-Auditor Assignment Matrix
 CROSS_REVIEW_MATRIX = {

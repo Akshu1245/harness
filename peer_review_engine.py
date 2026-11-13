@@ -14,9 +14,9 @@ import requests
 
 load_dotenv()
 
-respan = OpenAI(base_url="https://gateway.respan.ai/v1", api_key=os.environ.get("RESPAN_API_KEY"))
-explabs = OpenAI(base_url="https://api.experientiallabs.ai/v1", api_key=os.environ.get("EXPLABS_API_KEY"))
-apinex = OpenAI(base_url="https://api.apinex.bond/v1", api_key=os.environ.get("APINEX_API_KEY"))
+respan = OpenAI(base_url="https://gateway.respan.ai/v1", api_key=os.environ.get("RESPAN_API_KEY")) if os.environ.get("RESPAN_API_KEY") else None
+explabs = OpenAI(base_url="https://api.experientiallabs.ai/v1", api_key=os.environ.get("EXPLABS_API_KEY")) if os.environ.get("EXPLABS_API_KEY") else None
+apinex = OpenAI(base_url="https://api.apinex.bond/v1", api_key=os.environ.get("APINEX_API_KEY")) if os.environ.get("APINEX_API_KEY") else None
 
 # Define Peer-Review Pairs (Builder <-> Reviewer)
 PEER_REVIEW_PAIRS = {
