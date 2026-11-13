@@ -11,5 +11,5 @@
 | Bounty scope parsing | root4loot/rescope | 331 | MIT | candidate for importing program scopes |
 | Spec + fresh reviewers | google/elephant-goldfish-model | 17,820 | Apache-2.0 | pattern reimplemented in rashi/egm.py |
 | Decision router | NandhaKishorM/laya | n/a | Apache-2.0 | first-preference router, measured |
-| IDE front door | deepseek-ai/deepseek-harness | n/a | MIT | pin a commit; plugin pending |
+| IDE front door | deepseek-ai/deepseek-harness | 280,228 | MIT | pinned at 39163dd30f703a79079e2d2446545cff3c453738 (master, 2026-11-13, dsh-0.2.2); plugin pending |
 Excluded: OpenJev (CC BY-NC, not commercial-safe).
