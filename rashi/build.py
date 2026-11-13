@@ -11,6 +11,7 @@ from pathlib import Path
 from . import egm
 from .fleet import detect_all, report as fleet_report
 from .orchestrate import CLI_TEMPLATES, run_tasks
+from .repomap import map_dir
 
 
 def ready_agents(fleet_results):
@@ -58,9 +59,10 @@ def one_press(goal, base_dir, llm, approve, agents=None, fleet_results=None, max
     fleet_results = detect_all() if fleet_results is None and agents is None else (fleet_results or {})
     agents = agents if agents is not None else ready_agents(fleet_results)
     Path(base_dir).mkdir(parents=True, exist_ok=True)
-    brief, brief_findings = egm.brainstorm(llm, goal)  # EGM brainstorm: brief before the spec
+    repo_map = map_dir(base_dir)  # B3: the elephant drafts against what actually exists
+    brief, brief_findings = egm.brainstorm(llm, goal, context=repo_map)  # EGM brainstorm first
     Path(base_dir, "concepts_brief.md").write_text(brief)
-    spec, findings, checks = egm.spec_gate(llm, goal, base_dir, context=brief)
+    spec, findings, checks = egm.spec_gate(llm, goal, base_dir, context=brief + "\n\nREPO MAP:\n" + repo_map)
     if not approve(spec, findings):
         return {"status": "SPEC_NOT_APPROVED", "findings": findings}
     if not checks:

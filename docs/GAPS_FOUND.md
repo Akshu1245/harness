@@ -3,6 +3,19 @@
 Running list (his instruction 2026-11-13 10:52pm): gaps the old plan or earlier prompts skipped,
 found by audits / mutation testing / live runs / fresh-env runs, each with proof. Newest first.
 
+## 2026-11-13 11pm (archive gap list B-items)
+1. **B6 resume missing.** An interrupted run restarted from zero. Fixed: run_loop resumes from
+   PROGRESS.json when goal matches and status is unfinished; emits `resumed`. Proof:
+   tests/test_loop.py::test_resume_continues_an_interrupted_run (+ ignores done/other-goal runs).
+2. **B5 per-step rollback missing.** A regressing agent step stayed in the tree. Fixed: baseline
+   check run before the loop, per-step content stash (.rashi/rollback/), set-difference regression
+   rule, undo + agent told not to re-apply. Tampering check at baseline fails closed with evidence
+   (found by test_check_tampering_protected_file_fails during the change). Proof:
+   test_regression_rolls_back_the_bad_step, test_rollback_deletes_added_files.
+3. **B3 repo map missing.** The elephant drafted specs blind to the actual tree. Fixed:
+   rashi/repomap.py (deterministic, stdlib, capped, says when truncated) wired as context into
+   brainstorm + spec gate in both build paths. Proof: tests/test_repomap.py (4 tests).
+
 ## 2026-11-13 late evening
 1. **EGM drift report never ran.** `drift_report` existed but no pipeline called it - found by
    re-reading google/elephant-goldfish-model (drift report is one of its core skills). Fixed:

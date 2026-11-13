@@ -100,3 +100,77 @@ def test_big_check_output_spills_to_a_file(tmp_path):
     status, log = run_loop(spec, lambda g, f, w: None)
     spilled = list((tmp_path / ".spill").glob("*.log"))
     assert spilled and len(spilled[0].read_text()) == 9001
+
+
+def test_resume_continues_an_interrupted_run(tmp_path):
+    """B6: a run stopped at max iters resumes from PROGRESS.json instead of starting over."""
+    from rashi.loop import run_loop
+    import json as _json
+    spec = {"goal": "g", "checks": [{"id": "c1", "cmd": "test -f done.txt"}],
+            "workdir": str(tmp_path), "max_iters": 3}
+    calls = {"n": 0}
+    def lazy(g, f, wd):  # never writes the file
+        calls["n"] += 1
+    status, log = run_loop(spec, lazy)
+    assert status == "STOPPED_MAX_ITERS" and len(log) == 3 and calls["n"] == 3
+    def finisher(g, f, wd):
+        from pathlib import Path as P
+        P(wd, "done.txt").write_text("x")
+    spec2 = dict(spec, max_iters=5)
+    status2, log2 = run_loop(spec2, finisher)
+    assert status2 == "DONE_VERIFIED" and len(log2) == 4  # 3 old + 1 new, not 1 fresh
+    events = [_json.loads(l) for l in (tmp_path / "events.jsonl").read_text().splitlines()]
+    assert any(e.get("kind") == "resumed" and e.get("iters_done") == 3 for e in events)
+
+
+def test_resume_ignores_other_goals_and_done_runs(tmp_path):
+    from rashi.loop import run_loop
+    spec = {"goal": "g", "checks": [{"id": "c1", "cmd": "true"}], "workdir": str(tmp_path)}
+    assert run_loop(spec, lambda g, f, wd: None)[0] == "DONE_VERIFIED"
+    # a DONE run never resumes; a different goal starts fresh
+    assert run_loop(dict(spec, goal="other"), lambda g, f, wd: None)[0] == "DONE_VERIFIED"
+    import json as _json
+    assert not any(_json.loads(l).get("kind") == "resumed"
+                   for l in (tmp_path / "events.jsonl").read_text().splitlines())
+
+
+def test_regression_rolls_back_the_bad_step(tmp_path):
+    """B5: an agent step that breaks a previously-passing check is undone and logged."""
+    from rashi.loop import run_loop
+    import json as _json
+    (tmp_path / "a.txt").write_text("good")
+    spec = {"goal": "g", "workdir": str(tmp_path), "max_iters": 4,
+            "checks": [{"id": "a", "cmd": "grep -q good a.txt"},
+                       {"id": "b", "cmd": "test -f b.txt"}, {"id": "c", "cmd": "test -f c.txt"}]}
+    state = {"n": 0}
+    def agent(g, f, wd):
+        from pathlib import Path as P
+        state["n"] += 1
+        if state["n"] == 1:
+            P(wd, "b.txt").write_text("x")           # iter 1: fixes b, c still failing
+        elif state["n"] == 2:
+            P(wd, "c.txt").write_text("x")           # iter 2: fixes c but...
+            P(wd, "a.txt").write_text("broken")      #          REGRESSES a
+        elif state["n"] == 3:
+            P(wd, "c.txt").write_text("x")           # iter 3: re-fix c without touching a
+    status, log = run_loop(spec, agent)
+    assert status == "DONE_VERIFIED"
+    assert (tmp_path / "a.txt").read_text() == "good"  # rolled back, not left broken
+    events = [_json.loads(l) for l in (tmp_path / "events.jsonl").read_text().splitlines()]
+    rb = [e for e in events if e.get("kind") == "rollback"]
+    assert rb and rb[0]["restored"] == ["a.txt"] and rb[0]["deleted"] == ["c.txt"]
+
+
+def test_rollback_deletes_added_files(tmp_path):
+    from rashi.loop import run_loop
+    spec = {"goal": "g", "workdir": str(tmp_path), "max_iters": 2,
+            "checks": [{"id": "a", "cmd": "test -f keep.txt"}, {"id": "b", "cmd": "test ! -f junk.txt"}]}
+    (tmp_path / "keep.txt").write_text("x")
+    state = {"n": 0}
+    def agent(g, f, wd):
+        from pathlib import Path as P
+        state["n"] += 1
+        if state["n"] == 1:
+            P(wd, "junk.txt").write_text("bad")      # breaks b (b was passing)
+    run_loop(spec, agent)
+    assert not (tmp_path / "junk.txt").exists()
