@@ -15,7 +15,7 @@ def test_initialize_and_tools_list():
     r = roundtrip([{"jsonrpc": "2.0", "id": 1, "method": "initialize"},
                    {"jsonrpc": "2.0", "method": "notifications/initialized"},
                    {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}])
-    assert r[0]["result"]["protocolVersion"] == "2024-11-05"
+    assert r[0]["result"]["protocolVersion"] == "2025-11-25"
     assert len(r) == 2  # notifications get no response
     names = [t["name"] for t in r[1]["result"]["tools"]]
     assert names == ["rashi_fleet", "rashi_research", "rashi_drift", "rashi_ask", "rashi_build"]

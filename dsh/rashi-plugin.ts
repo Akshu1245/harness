@@ -7,11 +7,12 @@ import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { stagedBuild } from './staged.ts'
 
 const execFileAsync = promisify(execFile)
 
 export const name = 'rashi'
-export const inject = ['tools']
+export const inject = ['tools', 'approval']
 
 const RASHI_CMD = process.env.RASHI_CMD || 'rashi'
 const MAX_OUTPUT = 16 * 1024 // spill guard: long run output is truncated, never streamed raw
@@ -22,7 +23,7 @@ export function apply(ctx: Context) {
     description:
       'Run the Rashi harness. mode=fleet: detect installed agent CLIs and their readiness. ' +
       'mode=ask: one batch of clarifying intake questions for an idea (goal required). ' +
-      'mode=build: disabled pending spec review/approval support ' +
+      'mode=build: draft and review the exact task/check plan through native one-shot approval ' +
       '(goal and workdir required; needs a free provider key such as KENARI_API_KEY in the environment).',
     parameters: {
       mode: { type: 'string', required: true, description: 'fleet | ask | build' },
@@ -33,7 +34,7 @@ export function apply(ctx: Context) {
       schema: { type: 'string' },
       render: (_args, value) => [{ type: 'text', text: value }],
     },
-    async execute(args) {
+    async execute(args, exec) {
       const mode = String(args.mode)
       let argv: string[]
       if (mode === 'fleet') {
@@ -42,7 +43,12 @@ export function apply(ctx: Context) {
         if (!args.goal) throw new Error('rashi ask needs goal')
         argv = ['ask', String(args.goal)]
       } else if (mode === 'build') {
-        throw new Error('Build needs spec approval; use the Rashi CLI until this adapter supports a review handshake.')
+        if (!args.goal || !args.workdir || !exec?.agent) throw new Error('build needs goal, workdir and an active agent turn')
+        return await stagedBuild(RASHI_CMD, String(args.goal), String(args.workdir), async review => {
+          const outcome = await ctx.approval.request({ agent: exec.agent, toolName: 'rashi',
+            callId: exec.callId, signal: exec.signal, reason: review })
+          return outcome === 'allowed-once'
+        }, exec.signal)
       } else {
         throw new Error(`unknown rashi mode: ${mode} (use fleet | ask | build)`)
       }
@@ -50,6 +56,7 @@ export function apply(ctx: Context) {
         const { stdout, stderr } = await execFileAsync(RASHI_CMD, argv, {
           maxBuffer: 8 * 1024 * 1024,
           timeout: 120_000,
+          signal: exec?.signal,
           env: process.env,
         })
         const out = (stdout + (stderr ? `\n[stderr]\n${stderr}` : '')).trim()

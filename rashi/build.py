@@ -27,7 +27,7 @@ SPLIT_SYS = ("Split this spec into independent coding tasks. Reply with JSON onl
 
 
 def split_tasks(llm, spec_text, fallback_checks):
-    """Ask the planner to split the approved spec into tasks; any parse/validation problem
+    """Ask the planner to split the generated spec into tasks; any parse/validation problem
     falls back to one task carrying the spec's own checks. Tasks: [{id, goal, checks}]."""
     raw = llm(SPLIT_SYS, "SPEC:\n" + spec_text)
     tasks = None
@@ -83,11 +83,17 @@ def _one_press(goal, base_dir, llm, approve, agents=None, fleet_results=None, ma
     brief, brief_findings = egm.brainstorm(llm, goal, context=repo_map)  # EGM brainstorm first
     Path(base_dir, "concepts_brief.md").write_text(brief)
     spec, findings, checks = egm.spec_gate(llm, goal, base_dir, context=brief + "\n\nREPO MAP:\n" + repo_map)
-    if not approve(spec, findings):
-        return {"status": "SPEC_NOT_APPROVED", "findings": findings}
     if not checks:
         return {"status": "NO_CHECKS_IN_SPEC", "findings": findings}
     tasks, how = split_tasks(llm, spec, checks)
+    # Freeze the actual split/check commands BEFORE approval; no post-approval planner call.
+    review = spec + "\n\nExecution plan (exact task directories, goals and check commands):\n" + json.dumps(
+        {"workdir":str(Path(base_dir).resolve()),"tasks":tasks,"max_iters":max_iters,
+         "agents":{name:(value if isinstance(value,list) else "in-process agent") for name,value in agents.items()},
+         "warning":"Coding CLIs run with host account permissions and may use permissive CLI flags. "
+                   "Check-only sandboxing is not agent isolation. Approve only in a trusted disposable workspace."},indent=2)
+    if not approve(review, findings):
+        return {"status": "SPEC_NOT_APPROVED", "findings": findings}
     if not agents:
         return {"status": "NO_READY_AGENTS", "fleet": fleet_report(fleet_results) if fleet_results else "",
                 "tasks": tasks, "split": how}

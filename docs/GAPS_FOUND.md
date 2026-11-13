@@ -2,13 +2,13 @@
 
 The product is partially built. Older entries below record implementation milestones, not full product acceptance.
 
-- DSH: plugin composition is verified, not full model-to-tool execution. Build is now disabled in DSH and MCP until a generated-spec review/approval handshake exists. No unconditional approval.
+- DSH/MCP: generated-plan approval is implemented and adapter-tested with local deterministic agents. DSH requires native `allowed-once`; MCP requires supported client form elicitation with an explicit accepted boolean. No model-facing approval flag. Full real-model UI-to-build execution is still unverified.
 - Council: fake-member tests pass; a real 16-model debate has not run. Model overrides now reject non-free identifiers before client creation. A free identifier alone is not a guarantee of future provider pricing.
 - Sandbox: if requested but bwrap is missing, stop before agents or checks. No unsandboxed fallback. Only check commands use this profile; CLI agents are NOT confined by it. The read-only system mount does not hide private readable files.
 - Tracing: measured the real loop, not an empty block. Root spans close on errors/early returns. Local JSONL only, no Langfuse export.
 - Research: GitHub API candidates are discovery only, not vetted recommendations. Error-shaped API responses now report failure instead of "nothing found".
 - MCP: malformed JSON values now return invalid-request errors without crashing.
-- Rollback/resume remain partial: deletion recovery, bounded memory, symlink containment, persistent spec identity and full resume feedback need further hardening before safety claims.
+- Rollback/resume now cover bounded content capture, deletion/mode recovery, symlink rejection, persistent spec identity and feedback (see corrections below). They remain cooperative safeguards, not a hostile-process security boundary.
 
 Tests: regressions cover fail-closed sandbox, paid override rejection, no auto-approval through MCP/DSH, real loop event containment and exception spans, malformed MCP requests and search API errors.
 
@@ -121,3 +121,21 @@ found by audits / mutation testing / live runs / fresh-env runs, each with proof
 ## Paired same-model study, 2026-11-13 11:25pm
 
 Added `paired-bench`: shared initial completion, bare vs bounded prompt-visible execution repair, optional independent-sampling budget control. Official hidden tests used only after final candidate selection. Fixed denominators, samples/errors/call counts, per-task wins/losses and signed lift are recorded. Four tests include real doctest execution. Source vetting and limitations: PAIRED_LIFT.md. Offline calibration is not a measured model lift; real free-model comparison is pending.
+
+
+## Exact-plan approval bridges, 2026-11-14 12:04am
+
+- Planning/splitting now happens before approval, so review includes the actual task directories,
+  goals, shell checks, agent templates and iteration bound. No later planner call changes it.
+- DSH: trusted local JSONL bridge binds an approval response to the exact SHA-256 review. Only
+  native `allowed-once` continues. Child timeout/cancellation and process-group cleanup are tested.
+- MCP: negotiates supported protocol versions, uses form elicitation only for compatible clients,
+  and denies declined/cancelled/malformed/EOF responses. Approval expires after 15 minutes.
+  Legacy or unsupported clients must use the CLI for review instead. There is no tool argument
+  that grants approval. The serial stdio implementation does not cancel an already-running build
+  on MCP cancellation notifications; coding CLI calls keep their own timeout. Not a full SDK.
+- Proof: 184 Python tests and four standalone Node bridge tests pass. A 144-scenario offline soak
+  has no failures. Pinned DSH runtime adapter smoke uses a controlled approval answerer and
+  deterministic agent, not a model or real UI. Free-provider live completion awaits quota reset.
+- MCP source: https://modelcontextprotocol.io/specification/2025-11-25/client/elicitation
+  and https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation

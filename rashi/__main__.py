@@ -97,6 +97,9 @@ def main(argv=None):
     w = sub.add_parser("warroom", help="serve the event-stream UI for a run directory")
     w.add_argument("dir")
     w.add_argument("port", type=int, nargs="?", default=8765)
+    staged = sub.add_parser("staged-build", help="trusted local adapter: exact-plan approval over stdin/stdout")
+    staged.add_argument("goal")
+    staged.add_argument("dir")
     paired = sub.add_parser("paired-bench", help="same-model bare vs visible-feedback repair; custom subset, extra calls disclosed")
     paired.add_argument("--data", required=True)
     paired.add_argument("--limit", type=int, default=3)
@@ -127,6 +130,9 @@ def main(argv=None):
     bn.add_argument("--max-iters", type=int, default=6)
     args = ap.parse_args(argv)
 
+    if args.cmd == "staged-build":
+        from .approval_bridge import main as staged_main
+        return staged_main(args.goal,args.dir)
     if args.cmd == "paired-bench":
         from .paired_bench import main as paired_main
         return paired_main(args)

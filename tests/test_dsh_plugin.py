@@ -30,5 +30,6 @@ def test_overlay_has_no_secrets():
 def test_dsh_build_cannot_silently_approve_spec():
     src = (DSH / 'rashi-plugin.ts').read_text()
     assert "'--yes'" not in src
-    assert 'review handshake' in src
+    assert "outcome === 'allowed-once'" in src
+    assert 'ctx.approval.request' in src
     assert 'timeout: 120_000' in src

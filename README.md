@@ -51,7 +51,7 @@ MIT. See `LICENSE`.
 
 ## Verification limits
 
-The product is partially built. The DSH plugin has a composition check, not a full UI-to-build proof. DSH and MCP builds are disabled until they support explicit generated-spec approval. CLI-agent invocation templates remain unverified against real installations. Council has offline fake-member tests, not a verified 16-model run. Research finds candidates; it does not vet them. Optional bwrap applies to checks only, is not a secrets-isolation boundary, and fails closed when requested but unavailable. Tracing is local JSONL, not hosted telemetry. See docs/GAPS_FOUND.md for current corrections.
+The product is partially built. DSH and MCP now have exact-generated-plan approval handshakes, tested with local deterministic agents. DSH uses native one-shot approval; MCP requires client form elicitation and refuses unsupported clients. Neither has a full real-model UI-to-build proof. CLI-agent invocation templates remain unverified against real installations. Council has offline fake-member tests, not a verified 16-model run. Research finds candidates; it does not vet them. Optional bwrap applies to checks only, is not a secrets-isolation boundary, and fails closed when requested but unavailable. Tracing is local JSONL, not hosted telemetry. See docs/GAPS_FOUND.md for current corrections.
 
 ## Public benchmark adapter
 
