@@ -12,6 +12,7 @@ CLI invocation templates are best-effort and marked unverified until run against
 on his laptop; fleet.report tells him which agents are ready before anything is assigned.
 """
 import subprocess
+import re
 from pathlib import Path
 
 from .loop import changed_since, run_loop, snapshot
@@ -65,7 +66,17 @@ def run_tasks(tasks, agents, base_dir, max_iters=6, timeout=600):
     Each task runs in its own workdir. After each task, the files it changed are passed
     to later tasks as sibling context - ACM EXPRESS'26 measured that a message describing
     the completed concurrent change recovers 82% of pass-alone/fail-together runs."""
-    base = Path(base_dir)
+    # Model-supplied IDs become directory names. Validate the whole batch before any work.
+    ids = [t.get("id") for t in tasks]
+    if any(not isinstance(tid,str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}",tid) for tid in ids):
+        raise ValueError("task IDs must be safe simple directory names")
+    if len(ids) != len(set(ids)):
+        raise ValueError("duplicate task IDs")
+    base = Path(base_dir).resolve()
+    for tid in ids:
+        target = base / tid
+        if target.is_symlink():
+            raise ValueError("task directory cannot be a symlink")
     results = {}
     plan = assign(tasks, agents)
     sibling_changes = {}

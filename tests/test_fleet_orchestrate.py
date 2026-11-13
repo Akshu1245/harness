@@ -126,3 +126,24 @@ def test_hung_cli_agent_is_killed_and_recorded_not_done(tmp_path):
     assert res["t1"] != "DONE_VERIFIED"
     progress = (tmp_path / "run" / "t1" / "PROGRESS.json").read_text()
     assert "TimeoutExpired" in progress or "STOPPED" in progress
+
+
+def test_task_ids_cannot_escape_or_collide(tmp_path):
+    import pytest
+    from rashi.orchestrate import run_tasks
+    calls=[]
+    def agent(*a): calls.append(a)
+    for tasks in ([{'id':'../../elsewhere','goal':'g','checks':[]}],
+                  [{'id':'same','goal':'g','checks':[]},{'id':'same','goal':'g','checks':[]}]):
+        with pytest.raises(ValueError):
+            run_tasks(tasks,{'fake':agent},str(tmp_path))
+    assert calls == []
+
+
+def test_task_directory_symlink_is_refused(tmp_path):
+    import pytest
+    from rashi.orchestrate import run_tasks
+    outside=tmp_path/'outside'; outside.mkdir()
+    base=tmp_path/'base'; base.mkdir(); (base/'t1').symlink_to(outside,target_is_directory=True)
+    with pytest.raises(ValueError,match='symlink'):
+        run_tasks([{'id':'t1','goal':'g','checks':[]}],{'fake':lambda *a:None},str(base))
