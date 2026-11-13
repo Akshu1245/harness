@@ -1,5 +1,5 @@
 """Edit step backed by an OpenAI-compatible gateway. Free-tier only by design."""
-import re
+import json, re, time
 from pathlib import Path
 from openai import OpenAI
 
@@ -13,6 +13,32 @@ FREE_BASE_URLS = {
 }
 # Providers that also sell paid models: only these model ids are allowed (free ones).
 FREE_ONLY_MODELS = {"kenari": lambda m: m.endswith(":free") or m == "kenari-free"}
+class SpendGate:
+    """Daily call cap at the provider call path, persisted in one JSON file. Every allowed model is
+    free by construction (FREE_BASE_URLS + FREE_ONLY_MODELS), so this guards free-tier rate limits
+    and refuses to run up calls if a provider silently turns a model paid. Same semantics as the
+    rakshex-core Rust breaker (per-day counter, reset at 00:00 UTC, deny over cap); the Rust
+    prototype stays unconnected - this is the Python gate on the actual call path.
+    shortcut: counts calls, not tokens/rupees (free APIs return no reliable cost field);
+    upgrade: parse provider cost headers when one exists."""
+    def __init__(self, path, per_day=50):
+        self.path, self.per_day = Path(path), per_day
+
+    def check(self, provider):
+        day = time.strftime("%Y-%m-%d", time.gmtime())
+        try:
+            data = json.loads(self.path.read_text())
+        except (OSError, ValueError):
+            data = {}
+        if data.get("day") != day:
+            data = {"day": day, "calls": {}}
+        n = data.get("calls", {}).get(provider, 0)
+        if n >= self.per_day:
+            raise RuntimeError(f"daily free-call cap reached for {provider} ({self.per_day}/day)")
+        data.setdefault("calls", {})[provider] = n + 1
+        self.path.write_text(json.dumps(data))
+
+
 FILE_RE = re.compile(r"FILE:\s*(\S+)\s*\n```[a-zA-Z0-9]*\n(.*?)```", re.S)
 SYSTEM = ("You are a careful engineer. Reply ONLY with files to write, each as:\n"
           "FILE: relative/path.py\n```python\n<full file content>\n```\n"
@@ -36,7 +62,7 @@ def safe_write(workdir, rel, content, protected=()):
     target.write_text(content)
 
 
-def make_agent(provider, model, api_key, protected=(), max_tokens=1500, client=None):
+def make_agent(provider, model, api_key, protected=(), max_tokens=1500, client=None, calls_per_day=50):
     if provider not in FREE_BASE_URLS:
         raise ValueError(f"provider not allowed: {provider}")
     check = FREE_ONLY_MODELS.get(provider)
@@ -45,6 +71,7 @@ def make_agent(provider, model, api_key, protected=(), max_tokens=1500, client=N
     client = client or OpenAI(base_url=FREE_BASE_URLS[provider], api_key=api_key, timeout=90)
 
     def agent(goal, feedback, workdir):
+        SpendGate(Path(workdir) / ".spend.json", calls_per_day).check(provider)
         ctx = ""
         for fp in sorted(Path(workdir).glob("*.py")):
             ctx += f"\n--- {fp.name} ---\n{fp.read_text()[:3000]}"
