@@ -14,7 +14,7 @@ section with: `python -m rashi.model_table /path/to/fresh/kenari-models.json`.
 Lesson from the one-press live run: the flash model drafted a clean spec with three valid checks
 and wrote correct code first try, but its JSON-only replies (goldfish findings, task split) came
 back unparsable once each; both fallbacks (high-finding record, single-task split) absorbed it.
-JSON-strictness retry is the known upgrade.
+Both now retry once with an explicit JSON-only reminder before falling back (same commit series).
 
 Lesson from live runs: prefer flash-class (non-reasoning) models for loop iterations; reasoning
 models blew the 90s client timeout against Kenari's 5 rpm free tier. Use reasoning models only
