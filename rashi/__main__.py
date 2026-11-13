@@ -1,6 +1,9 @@
 """The harness front door. Usage:
     python -m rashi fleet                 # detect agent CLIs, test readiness, print fixes
+    python -m rashi ask "idea"            # intake: all clarifying questions in one batch
     python -m rashi build "build X" DIR   # one press: spec -> approve -> distribute -> verify
+                                          #   --answers FILE folds intake answers into the goal
+                                          #   --approval full-access|review-and-accept|ask-for-everything
     python -m rashi bench                 # run the fixed benchmark tasks on a free model
     python -m rashi warroom DIR [port]    # live event stream UI for a run
 
@@ -15,8 +18,10 @@ import sys
 from pathlib import Path
 
 from . import bench as benchmod
+from .approval import MODES, approver
 from .build import one_press
 from .fleet import detect_all, report
+from .intake import questions, with_answers
 from .llm_agent import FREE_BASE_URLS, FREE_ONLY_MODELS, make_agent
 from .loop import run_loop
 
@@ -54,10 +59,16 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="rashi", description="RaksHex harness front door")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("fleet", help="detect and readiness-test installed agent CLIs")
+    a = sub.add_parser("ask", help="intake: all clarifying questions for an idea, in one batch")
+    a.add_argument("idea")
     b = sub.add_parser("build", help="one press: research, plan, distribute, verify")
     b.add_argument("goal")
     b.add_argument("dir")
-    b.add_argument("--yes", action="store_true", help="approve the spec without prompting")
+    b.add_argument("--yes", action="store_true", help="same as --approval full-access")
+    b.add_argument("--approval", choices=MODES, default="review-and-accept",
+                   help="exactly three modes exist; default asks once on the spec")
+    b.add_argument("--answers", help="file with answers to the `rashi ask` intake batch")
+    b.add_argument("--model", help="override the model; a paid model needs RASHI_ALLOW_PAID=1")
     w = sub.add_parser("warroom", help="serve the event-stream UI for a run directory")
     w.add_argument("dir")
     w.add_argument("port", type=int, nargs="?", default=8765)
@@ -76,13 +87,27 @@ def main(argv=None):
         print(f"war room on http://127.0.0.1:{args.port}/  (events: {args.dir}/events.jsonl)")
         serve(args.dir, args.port).serve_forever()
         return 0
-    # build / bench
+    # ask / build / bench
     found = find_llm()
     if not found:
         print("No free provider key in the environment. Set one of: "
               + ", ".join(KEY_ENV.values()), file=sys.stderr)
         return 2
     provider, model, key = found
+    allow_paid = os.environ.get("RASHI_ALLOW_PAID") == "1"
+    chosen = getattr(args, "model", None)
+    if chosen and chosen != model:
+        check = FREE_ONLY_MODELS.get(provider)
+        if check and not check(chosen) and not allow_paid:
+            print(f"paid model refused on {provider}: {chosen} "
+                  "(set RASHI_ALLOW_PAID=1 to spend your own key's money)", file=sys.stderr)
+            return 2
+        model = chosen
+    if args.cmd == "ask":
+        print(questions(make_llm(provider, model, key), args.idea))
+        print("\nAnswer in one message and build with: rashi build \"" + args.idea + "\" DIR "
+              "--answers answers.txt\nOr paste the questions into your own AI and bring its answers back.")
+        return 0
     if args.cmd == "bench":
         agent = make_agent(provider, model, key)
         tasks = benchmod.load_tasks(args.tasks)
@@ -119,12 +144,11 @@ def main(argv=None):
         return 0 if summary["done_verified"] == summary["n"] else 1
     llm = make_llm(provider, model, key)
 
-    def approve(spec, findings):
-        print(spec)
-        if findings:
-            print("Findings:", findings)
-        return True if args.yes else input("Approve this spec? [y/N] ").strip().lower() == "y"
-    result = one_press(args.goal, args.dir, llm, approve)
+    mode = "full-access" if args.yes else args.approval
+    goal = args.goal
+    if args.answers:
+        goal = with_answers(goal, Path(args.answers).read_text())
+    result = one_press(goal, args.dir, llm, approver(mode))
     print(result)
     return 0 if result["status"] == "DONE_VERIFIED" else 1
 

@@ -14,7 +14,8 @@ FREE_BASE_URLS = {
     "kenari": "https://kenari.id/v1",
 }
 # Providers that also sell paid models: only these model ids are allowed (free ones).
-FREE_ONLY_MODELS = {"kenari": lambda m: m.endswith(":free") or m == "kenari-free"}
+FREE_ONLY_MODELS = {"kenari": lambda m: m.endswith(":free") or m == "kenari-free",
+                    "openrouter": lambda m: m.endswith(":free")}
 class SpendGate:
     """Daily call cap at the provider call path, persisted in one JSON file. Every allowed model is
     free by construction (FREE_BASE_URLS + FREE_ONLY_MODELS), so this guards free-tier rate limits
@@ -45,7 +46,9 @@ class SpendGate:
 
 
 FILE_RE = re.compile(r"FILE:\s*(\S+)\s*\n```[a-zA-Z0-9]*\n(.*?)```", re.S)
-SYSTEM = ("You are a careful engineer. Reply ONLY with files to write, each as:\n"
+from .rules import NEVER_LIE
+
+SYSTEM = ("You are a careful engineer. " + NEVER_LIE + " Reply ONLY with files to write, each as:\n"
           "FILE: relative/path.py\n```python\n<full file content>\n```\n"
           "No explanations. Never edit test files. If checks failed, fix the cause.")
 
@@ -67,12 +70,17 @@ def safe_write(workdir, rel, content, protected=()):
     target.write_text(content)
 
 
-def make_agent(provider, model, api_key, protected=(), max_tokens=1500, client=None, calls_per_day=50):
+def make_agent(provider, model, api_key, protected=(), max_tokens=1500, client=None, calls_per_day=50,
+               allow_paid=False):
+    """Paid models are an explicit opt-in (his 2026-11-13 voice note: free gateways OR his own
+    paid multi-provider keys, both as options). Default stays free-only; allow_paid=True /
+    RASHI_ALLOW_PAID=1 is the user's own choice to spend."""
     if provider not in FREE_BASE_URLS:
         raise ValueError(f"provider not allowed: {provider}")
     check = FREE_ONLY_MODELS.get(provider)
-    if check and not check(model):
-        raise ValueError(f"paid model refused on {provider}: {model}")
+    if check and not check(model) and not allow_paid:
+        raise ValueError(f"paid model refused on {provider}: {model} "
+                         "(opt in with allow_paid=True or RASHI_ALLOW_PAID=1 - that spends real money)")
     client = client or OpenAI(base_url=FREE_BASE_URLS[provider], api_key=api_key, timeout=90)
 
     def agent(goal, feedback, workdir):

@@ -9,9 +9,11 @@ Reviews are advisory; check exit codes still decide DONE.
 import json, re
 from pathlib import Path
 
+from .rules import NEVER_LIE
+
 ELEPHANT_SYS = ("You draft a software spec. Output markdown with sections: Goal, Constraints, "
                 "Files (one `path` per bullet), Checks (one shell command per bullet in backticks), "
-                "Out of scope. Be concrete and testable.")
+                "Out of scope. Be concrete and testable. " + NEVER_LIE)
 GOLDFISH_SYS = ("You are a fresh reviewer with no prior context. Review ONLY the spec and files given. "
                 "Reply with JSON only: {\"findings\":[{\"severity\":\"high|med|low\",\"issue\":str,"
                 "\"evidence\":str}]}. Flag unstated assumptions, untestable requirements, missing checks.")

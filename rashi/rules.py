@@ -31,3 +31,11 @@ NO_AI_SLOP = (
     "negative listing; dramatic fragmentation; rhetorical setups; fake-profound kickers; "
     "summary-recap endings; decorative bold/emoji formatting."
 )
+
+NEVER_LIE = (
+    "Never claim done, complete, fixed or finished unless the checks for it exited 0. "
+    "Partially built is reported as 'partially built', naming exactly what is missing and what "
+    "was verified. When unsure, say what was checked and what was not. His 2026-11-13 voice "
+    "note: fake 'done' promises are what users hate in current IDEs; this harness never makes "
+    "one."
+)
