@@ -52,3 +52,7 @@ MIT. See `LICENSE`.
 ## Verification limits
 
 The product is partially built. The DSH plugin has a composition check, not a full UI-to-build proof. DSH and MCP builds are disabled until they support explicit generated-spec approval. CLI-agent invocation templates remain unverified against real installations. Council has offline fake-member tests, not a verified 16-model run. Research finds candidates; it does not vet them. Optional bwrap applies to checks only, is not a secrets-isolation boundary, and fails closed when requested but unavailable. Tracing is local JSONL, not hosted telemetry. See docs/GAPS_FOUND.md for current corrections.
+
+## Public benchmark adapter
+
+`rashi public-bench --data /path/to/HumanEval.jsonl.gz --limit 3 --self-test --out calibration.json` runs isolated evaluator calibration, not a model benchmark. `--samples FILE` grades one completion per task; `--generate` explicitly uses the configured free default model and saves samples. Requires Linux bwrap; no unsandboxed fallback. This custom subset is not an official leaderboard score or proof of whole-product readiness. See [the vetted benchmark plan](docs/PUBLIC_BENCHMARKS.md).

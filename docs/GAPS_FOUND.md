@@ -97,3 +97,10 @@ found by audits / mutation testing / live runs / fresh-env runs, each with proof
 8. **Empty spec draft from flash model flowed downstream** - live Kenari run. Fixed: draft_spec
    asks once more on an empty reply (test_draft_spec_retries_an_empty_reply).
 9. **Fallback check-shape crash** - live end-to-end run. Fixed before push (see git log).
+
+## Public benchmark work, 2026-11-13 11:12pm
+
+- Gap: local toy tasks alone were not public benchmark evidence. Added `rashi public-bench`, a stdlib HumanEval subset adapter with separated prompt-only generation, fixed one-attempt denominator, data hash and saved completions. Full vetted list and future external evaluators: [PUBLIC_BENCHMARKS.md](PUBLIC_BENCHMARKS.md).
+- Verification: upstream HumanEval/0..2 canonical calibration 3/3, deliberately broken completions 0/3. These are evaluator self-tests, not a model score. Model measurement awaits free quota.
+- The public grader uses a new bwrap root rather than read-only host root. Tests check private paths/env are not exposed and early exit is not a pass. This is defense in depth, not a claim of a fully adversarial sandbox.
+- Deferred with reasons: heavyweight Docker suites, unresolved exercise/dataset redistribution rights, and full-set statistical/contamination analysis. Nothing has been silently called fully ready.

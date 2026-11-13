@@ -97,6 +97,14 @@ def main(argv=None):
     w = sub.add_parser("warroom", help="serve the event-stream UI for a run directory")
     w.add_argument("dir")
     w.add_argument("port", type=int, nargs="?", default=8765)
+    pb = sub.add_parser("public-bench", help="isolated HumanEval subset evaluation; not an official leaderboard score")
+    pb.add_argument("--data", required=True, help="local upstream HumanEval.jsonl.gz")
+    pb.add_argument("--samples", help="local JSONL with task_id/completion, one per task")
+    pb.add_argument("--limit", type=int, default=3)
+    pb.add_argument("--out", default="public-bench-result.json")
+    mode = pb.add_mutually_exclusive_group()
+    mode.add_argument("--generate", action="store_true", help="generate with configured free default model")
+    mode.add_argument("--self-test", action="store_true", help="reference/broken calibration, NOT a model score")
     sub.add_parser("mcp", help="serve rashi tools over MCP stdio (JSON-RPC, no dependencies)")
     r = sub.add_parser("research", help="find existing open-source projects for a topic (no key)")
     r.add_argument("topic")
@@ -113,6 +121,9 @@ def main(argv=None):
     bn.add_argument("--max-iters", type=int, default=6)
     args = ap.parse_args(argv)
 
+    if args.cmd == "public-bench":
+        from .public_bench import main as public_main
+        return public_main(args)
     if args.cmd == "fleet":
         print(report(detect_all()))
         return 0
