@@ -101,6 +101,21 @@
 </head>
 <body class="h-screen flex flex-col overflow-hidden antialiased">
 
+  <!-- Approval panel: the three modes are full-access / review-and-accept / ask-for-everything.
+       Shown only while a run waits on a decision (PENDING_APPROVAL.json via /approval). -->
+  <div id="approval-panel" class="hidden fixed inset-x-0 top-16 z-40 mx-auto max-w-2xl bg-gray-950 border border-amber-500/40 rounded-xl shadow-2xl p-5">
+    <div class="flex items-center justify-between mb-3">
+      <span class="text-amber-300 font-bold text-sm tracking-wide">APPROVAL NEEDED</span>
+      <span id="approval-mode" class="text-[11px] font-mono text-gray-400"></span>
+    </div>
+    <pre id="approval-spec" class="text-xs text-gray-200 whitespace-pre-wrap max-h-64 overflow-y-auto bg-white/[0.03] rounded-md p-3 mb-3"></pre>
+    <div id="approval-findings" class="text-xs text-rose-300 mb-4"></div>
+    <div class="flex gap-3 justify-end">
+      <button onclick="decide(false)" class="px-4 py-1.5 rounded-md bg-rose-600/80 hover:bg-rose-500 text-white text-sm font-semibold">Reject</button>
+      <button onclick="decide(true)" class="px-4 py-1.5 rounded-md bg-emerald-600/80 hover:bg-emerald-500 text-white text-sm font-semibold">Accept</button>
+    </div>
+  </div>
+
   <!-- Astryx / Aceternity Top Command Bar -->
   <header class="h-14 bg-gray-950/80 backdrop-blur-md border-b border-white/10 px-6 flex items-center justify-between shrink-0 z-30">
     <div class="flex items-center space-x-4">
@@ -473,6 +488,31 @@
     }
     pollEvents();
     setInterval(pollEvents, 2000);
+
+    // Approval polling: the build writes PENDING_APPROVAL.json; this page is how
+    // review-and-accept and ask-for-everything answer it. full-access never lands here.
+    const approvalPanel = document.getElementById("approval-panel");
+    async function pollApproval() {
+      try {
+        const r = await fetch("/approval");
+        if (!r.ok) throw new Error("http " + r.status);
+        const data = await r.json();
+        if (!data.pending) { approvalPanel.classList.add("hidden"); return; }
+        document.getElementById("approval-mode").textContent =
+          "mode: " + data.mode + " (modes: full-access / review-and-accept / ask-for-everything)";
+        document.getElementById("approval-spec").textContent = data.spec || "";
+        document.getElementById("approval-findings").innerHTML =
+          (data.findings || []).map(f => `- [${f.severity || "?"}] ${f.issue || "?"}`).join("<br>");
+        approvalPanel.classList.remove("hidden");
+      } catch (e) { approvalPanel.classList.add("hidden"); }
+    }
+    async function decide(approve) {
+      await fetch("/decision", {method: "POST", headers: {"Content-Type": "application/json"},
+                                body: JSON.stringify({approve})});
+      approvalPanel.classList.add("hidden");
+    }
+    pollApproval();
+    setInterval(pollApproval, 2000);
 
     function dispatchSimulationPulse() { pollEvents(); }
   </script>

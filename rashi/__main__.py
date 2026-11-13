@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 from . import bench as benchmod
-from .approval import MODES, approver
+from .approval import MODES, approver, file_approver
 from .build import one_press
 from .fleet import detect_all, report
 from .intake import questions, with_answers
@@ -68,6 +68,9 @@ def main(argv=None):
     b.add_argument("--approval", choices=MODES, default="review-and-accept",
                    help="exactly three modes exist; default asks once on the spec")
     b.add_argument("--answers", help="file with answers to the `rashi ask` intake batch")
+    b.add_argument("--web", action="store_true",
+                   help="approve through the war-room page instead of the terminal "
+                        "(serve `rashi warroom DIR` first)")
     b.add_argument("--model", help="override the model; a paid model needs RASHI_ALLOW_PAID=1")
     w = sub.add_parser("warroom", help="serve the event-stream UI for a run directory")
     w.add_argument("dir")
@@ -148,7 +151,10 @@ def main(argv=None):
     goal = args.goal
     if args.answers:
         goal = with_answers(goal, Path(args.answers).read_text())
-    result = one_press(goal, args.dir, llm, approver(mode))
+    approve = file_approver(mode, args.dir) if args.web else approver(mode)
+    if args.web:
+        print(f"approval via the war-room page: rashi warroom {args.dir} (mode: {mode})")
+    result = one_press(goal, args.dir, llm, approve)
     print(result)
     return 0 if result["status"] == "DONE_VERIFIED" else 1
 

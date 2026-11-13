@@ -8,7 +8,7 @@ Experimental multi-model coding harness. Status: **early prototype**. This READM
 - `rashi/rules.py`: the ponytail (smallest complete change) and no-ai-slop rules, always consulted by the planner/coder/reviewer prompts.
 - `rashi/llm_agent.py`: edit step through any OpenAI-compatible gateway. Free-tier gateways only by default; a paid model on your own key is an explicit opt-in (`RASHI_ALLOW_PAID=1` / `allow_paid=True`), refused otherwise. Writes are confined to the work directory and cannot touch protected paths.
 - `rashi/intake.py` (`rashi ask "idea"`): paste an idea refined elsewhere, get ALL clarifying questions in one numbered multiple-choice batch; answer inline (`--answers`) or copy the batch into your own AI and bring answers back.
-- `rashi/approval.py` (`--approval`): exactly three modes - `full-access`, `review-and-accept`, `ask-for-everything`. Nothing else exists.
+- `rashi/approval.py` (`--approval`): exactly three modes - `full-access`, `review-and-accept`, `ask-for-everything`. Nothing else exists. `--web` moves the question to the war-room page: the build writes PENDING_APPROVAL.json, the page shows spec + findings with Accept/Reject, and a missing answer fails closed (no = no).
 - Never-lie rule (`rashi/rules.py` NEVER_LIE): no prompt in the harness may claim done/complete unless checks exited 0; partial work is reported as partial. Statuses are `DONE_VERIFIED` only on exit codes, else `INCOMPLETE`/the failure name.
 - `autonomous_loop_engine.py`: the older two-stage build + cross-review demo. Its approval gate now fails closed (error or missing field = not approved) and empty/refusal output is rejected.
 - `rashi_cloud_runner.py`: cloud browser worker. Needs a bearer token, binds to localhost, and only fetches public http(s) URLs.

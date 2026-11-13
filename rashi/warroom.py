@@ -15,6 +15,8 @@ PAGE = Path(__file__).resolve().parent / "data" / "visual_war_room.html"
 
 def make_handler(workdir):
     events_path = Path(workdir) / "events.jsonl"
+    pending_path = Path(workdir) / "PENDING_APPROVAL.json"
+    decision_path = Path(workdir) / "APPROVAL_DECISION.json"
 
     class Handler(BaseHTTPRequestHandler):
         def _send(self, body, ctype, code=200):
@@ -36,8 +38,31 @@ def make_handler(workdir):
                     except ValueError:
                         continue
                 return self._send(json.dumps({"events": rows, "live": True}), "application/json")
+            if self.path.startswith("/approval"):
+                if not pending_path.exists():
+                    return self._send('{"pending": false}', "application/json")
+                try:
+                    data = json.loads(pending_path.read_text())
+                except ValueError:
+                    return self._send('{"pending": false}', "application/json")
+                return self._send(json.dumps({"pending": True, **data}), "application/json")
             if self.path in ("/", "/index.html"):
                 return self._send(PAGE.read_text(), "text/html")
+            self._send("not found", "text/plain", 404)
+
+        def do_POST(self):
+            if self.path.startswith("/decision"):
+                n = int(self.headers.get("Content-Length") or 0)
+                try:
+                    body = json.loads(self.rfile.read(n) or b"{}")
+                except ValueError:
+                    return self._send('{"ok": false}', "application/json", 400)
+                # Only a genuinely pending approval can be decided; the page cannot approve thin air.
+                if not pending_path.exists():
+                    return self._send('{"ok": false, "error": "no pending approval"}',
+                                      "application/json", 409)
+                decision_path.write_text(json.dumps({"approve": bool(body.get("approve"))}))
+                return self._send('{"ok": true}', "application/json")
             self._send("not found", "text/plain", 404)
 
         def log_message(self, *a):  # quiet
