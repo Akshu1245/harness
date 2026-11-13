@@ -1,4 +1,11 @@
 import os
+import sys
+
+if os.environ.get("RASHI_ALLOW_PAID_PROBES") != "1":
+    sys.exit("refused: this probe calls PAID endpoints (Coarena tie-breaker, paid Claude on "
+             "Respan/APInex). The harness is free-tier only on the automatic path "
+             "(rashi/llm_agent.py). Set RASHI_ALLOW_PAID_PROBES=1 to run it manually anyway.")
+
 import time
 from dotenv import load_dotenv
 from openai import OpenAI

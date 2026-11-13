@@ -22,7 +22,7 @@ python -m pytest -q tests
 Copy `.env.example` to `.env` and fill it. Never commit keys; `tests/test_phase0.py` fails if a known key pattern appears in the tree.
 
 ## Models
-Model IDs differ per gateway; list them with the gateway's `/v1/models` before use. Some IDs in older scripts (for example `...:free` suffixes) did not match the gateway lists on 2026-11-12.
+Model IDs differ per gateway; list them with the gateway's `/v1/models` before use. Some IDs in older scripts (for example `...:free` suffixes) did not match the gateway lists on 2026-11-12. Manual live probes (including the ones that call paid endpoints) live in `probes/`; paid probes refuse to run unless `RASHI_ALLOW_PAID_PROBES=1`.
 
 ## License
 MIT. See `LICENSE`.
