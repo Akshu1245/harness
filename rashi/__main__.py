@@ -7,6 +7,7 @@
     python -m rashi warroom DIR [port]    # live event stream UI for a run
     python -m rashi drift SPEC DIR        # EGM drift report: spec paths missing from the code
     python -m rashi council "question"    # debate + vote across your configured free gateways
+    python -m rashi research "topic"      # find existing OSS for a topic (keyless, zero spend)
 
 `build`/`bench` need one free provider key in the environment (KENARI_API_KEY first,
 then the other free gateways); the coding in `build` is done by the CLI agents fleet
@@ -84,9 +85,13 @@ def main(argv=None):
     b.add_argument("--yes", action="store_true", help="approve the spec without prompting")
     b.add_argument("--answers", help="file with answers to the `rashi ask` intake batch")
     b.add_argument("--model", help="override the model; a paid model needs RASHI_ALLOW_PAID=1")
+    b.add_argument("--research", action="store_true",
+                   help="search for existing OSS first and feed findings into the brief")
     w = sub.add_parser("warroom", help="serve the event-stream UI for a run directory")
     w.add_argument("dir")
     w.add_argument("port", type=int, nargs="?", default=8765)
+    r = sub.add_parser("research", help="find existing open-source projects for a topic (no key)")
+    r.add_argument("topic")
     d = sub.add_parser("drift", help="compare a spec/design doc with the code tree; exit 1 on drift")
     d.add_argument("spec")
     d.add_argument("dir")
@@ -102,6 +107,10 @@ def main(argv=None):
 
     if args.cmd == "fleet":
         print(report(detect_all()))
+        return 0
+    if args.cmd == "research":
+        from .research import as_context, oss_alternatives
+        print(as_context(oss_alternatives(args.topic)))
         return 0
     if args.cmd == "council":
         from .council import debate
@@ -194,7 +203,11 @@ def main(argv=None):
         if findings:
             print("Findings:", findings)
         return True if args.yes else input("Approve this spec? [y/N] ").strip().lower() == "y"
-    result = one_press(goal, args.dir, llm, approve)
+    research_fn = None
+    if getattr(args, "research", False):  # R28: OSS alternatives feed the brief; failures stated
+        from .research import as_context, oss_alternatives
+        research_fn = lambda topic: as_context(oss_alternatives(topic))
+    result = one_press(goal, args.dir, llm, approve, research=research_fn)
     print(result)
     return 0 if result["status"] == "DONE_VERIFIED" else 1
 

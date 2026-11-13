@@ -112,3 +112,20 @@ def test_one_press_drift_flags_spec_paths_never_built(tmp_path):
     r = build.one_press("g", str(tmp_path / "w"), llm_drifty, lambda s, f: True,
                         agents={"fake": [str(agent), "{prompt}"]})
     assert r["drift"]["drifted"] and "never_built.py" in r["drift"]["missing_paths"]
+
+
+def test_one_press_research_feeds_the_brief(tmp_path):
+    """R28: research findings reach the brainstorm context; failure text stays honest."""
+    import stat as _stat
+    agent = tmp_path / "fakeagent"
+    agent.write_text("#!/bin/sh\necho x > out.txt\n")
+    agent.chmod(agent.stat().st_mode | _stat.S_IEXEC)
+    seen = []
+    def llm_probe(system, user):
+        seen.append(user)
+        return llm_ok(system, user)
+    research = lambda topic: "Existing open-source projects (reuse before building):\n- T: https://u"
+    r = build.one_press("make out.txt", str(tmp_path / "w"), llm_probe, lambda s, f: True,
+                        agents={"fake": [str(agent), "{prompt}"]}, research=research)
+    assert r["status"] == "DONE_VERIFIED"
+    assert any("reuse before building" in u for u in seen)

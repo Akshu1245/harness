@@ -26,6 +26,7 @@ rashi ask "idea"                 # one batch of clarifying questions before a bu
 rashi warroom /tmp/rashi-bench   # live event-stream UI for a run directory
 rashi drift spec.md .              # EGM drift report: spec paths missing from the code (exit 1 on drift)
 rashi council "question"          # debate + vote across configured free gateways (advisory)
+rashi research "topic"            # most-starred OSS for a topic, GitHub API, keyless (rashi build --research feeds it into the brief)
 ```
 Develop from a clone:
 ```bash

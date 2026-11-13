@@ -3,6 +3,15 @@
 Running list (his instruction 2026-11-13 10:52pm): gaps the old plan or earlier prompts skipped,
 found by audits / mutation testing / live runs / fresh-env runs, each with proof. Newest first.
 
+## 2026-11-13 11pm - R28 research department
+1. **R28 research-before-building missing from the product.** REUSE.md was process only. Fixed:
+   rashi/research.py - most-starred GitHub repos for a topic via the keyless search API, with
+   stars and descriptions, honest on failure (no invented hits). `rashi research "topic"` CLI and
+   `rashi build --research` feed findings into the EGM brief. Note: DuckDuckGo HTML was tried
+   first and silently returns an anomaly page from datacenter IPs (observed live) - GitHub search
+   is the working keyless source and answers his "good number of stars" rule directly. Proof:
+   tests/test_research.py (4), test_one_press_research_feeds_the_brief, live CLI run verified.
+
 ## 2026-11-13 11pm - R29 memory
 1. **R29 second brain missing.** Nothing carried learnings between runs. Fixed:
    rashi/memory.py (append-only .rashi/memory.jsonl; the loop records done/rollback/stall;

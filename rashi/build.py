@@ -55,12 +55,19 @@ def split_tasks(llm, spec_text, fallback_checks):
             for t in tasks], "split"
 
 
-def one_press(goal, base_dir, llm, approve, agents=None, fleet_results=None, max_iters=6):
+def one_press(goal, base_dir, llm, approve, agents=None, fleet_results=None, max_iters=6,
+              research=None):
+    """research: optional callable topic -> context text (e.g. research.as_context(oss_alternatives(..)));
+    its findings are prepended to the brainstorm context (his rule: reuse OSS before building)."""
     """The full flow. agents/fleet_results injectable; real run uses fleet.detect_all()."""
     fleet_results = detect_all() if fleet_results is None and agents is None else (fleet_results or {})
     agents = agents if agents is not None else ready_agents(fleet_results)
     Path(base_dir).mkdir(parents=True, exist_ok=True)
     repo_map = map_dir(base_dir)  # B3: the elephant drafts against what actually exists
+    if research is not None:
+        found = research(goal)  # R28: existing OSS first; failures are stated, never hidden
+        if found:
+            repo_map = found + "\n\n" + repo_map
     past = recall(base_dir)       # R29: and against what this workdir already learned
     if past:
         repo_map += "\n\nMEMORY FROM EARLIER RUNS:\n" + past
