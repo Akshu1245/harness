@@ -8,6 +8,7 @@
     python -m rashi drift SPEC DIR        # EGM drift report: spec paths missing from the code
     python -m rashi council "question"    # debate + vote across your configured free gateways
     python -m rashi research "topic"      # find existing OSS for a topic (keyless, zero spend)
+    python -m rashi mcp                   # serve rashi tools over MCP stdio (for agent CLIs)
 
 `build`/`bench` need one free provider key in the environment (KENARI_API_KEY first,
 then the other free gateways); the coding in `build` is done by the CLI agents fleet
@@ -90,6 +91,7 @@ def main(argv=None):
     w = sub.add_parser("warroom", help="serve the event-stream UI for a run directory")
     w.add_argument("dir")
     w.add_argument("port", type=int, nargs="?", default=8765)
+    sub.add_parser("mcp", help="serve rashi tools over MCP stdio (JSON-RPC, no dependencies)")
     r = sub.add_parser("research", help="find existing open-source projects for a topic (no key)")
     r.add_argument("topic")
     d = sub.add_parser("drift", help="compare a spec/design doc with the code tree; exit 1 on drift")
@@ -107,6 +109,10 @@ def main(argv=None):
 
     if args.cmd == "fleet":
         print(report(detect_all()))
+        return 0
+    if args.cmd == "mcp":
+        from .mcp_server import serve
+        serve()
         return 0
     if args.cmd == "research":
         from .research import as_context, oss_alternatives

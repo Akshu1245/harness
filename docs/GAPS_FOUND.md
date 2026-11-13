@@ -3,6 +3,14 @@
 Running list (his instruction 2026-11-13 10:52pm): gaps the old plan or earlier prompts skipped,
 found by audits / mutation testing / live runs / fresh-env runs, each with proof. Newest first.
 
+## 2026-11-13 11pm - B11 MCP
+1. **B11 MCP missing.** Agent CLIs could not call the harness as a tool server. Fixed:
+   rashi/mcp_server.py - MCP stdio JSON-RPC (protocol 2024-11-05) in pure stdlib, exposing
+   rashi_fleet / rashi_research / rashi_drift / rashi_ask / rashi_build. Tool failures are tool
+   errors (isError), never server crashes; keyless tools work without any provider key, ask/build
+   say honestly when no key is set. Verified with a live stdio session (initialize + a real
+   rashi_research call returning GitHub results). Proof: tests/test_mcp_server.py (4).
+
 ## 2026-11-13 11pm - R28 research department
 1. **R28 research-before-building missing from the product.** REUSE.md was process only. Fixed:
    rashi/research.py - most-starred GitHub repos for a topic via the keyless search API, with
