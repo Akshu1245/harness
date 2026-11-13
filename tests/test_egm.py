@@ -54,3 +54,12 @@ def test_revision_that_drops_checks_keeps_last_valid(tmp_path):
         return "Checks\n- `python t.py`\n" if "Revise" not in u else "no checks here"
     spec, findings, checks = egm.spec_gate(llm, "g", str(tmp_path))
     assert checks == [{"id": "c1", "cmd": "python t.py"}]
+
+
+def test_goldfish_retries_once_on_unparsable(tmp_path):
+    calls = {"n": 0}
+    def llm(s, u):
+        calls["n"] += 1
+        return "lol" if calls["n"] == 1 else '{"findings":[{"severity":"low","issue":"ok"}]}'
+    f = egm.goldfish_review(llm, "spec", str(tmp_path))
+    assert f == [{"severity": "low", "issue": "ok"}] and calls["n"] == 2

@@ -27,11 +27,17 @@ def split_tasks(llm, spec_text, fallback_checks):
     """Ask the planner to split the approved spec into tasks; any parse/validation problem
     falls back to one task carrying the spec's own checks. Tasks: [{id, goal, checks}]."""
     raw = llm(SPLIT_SYS, "SPEC:\n" + spec_text)
-    m = re.search(r"\{.*\}", raw or "", re.S)
-    try:
-        tasks = json.loads(m.group(0))["tasks"] if m else None
-    except (ValueError, KeyError):
-        tasks = None
+    tasks = None
+    for attempt in range(2):
+        if attempt:
+            raw = llm(SPLIT_SYS, "Your last reply was not parseable. JSON only.\n\nSPEC:\n" + spec_text)
+        m = re.search(r"\{.*\}", raw or "", re.S)
+        try:
+            tasks = json.loads(m.group(0))["tasks"] if m else None
+        except (ValueError, KeyError):
+            tasks = None
+        if isinstance(tasks, list) and tasks:
+            break
     ok = (isinstance(tasks, list) and tasks and all(
         isinstance(t, dict) and t.get("id") and t.get("goal") and
         isinstance(t.get("checks"), list) and all(isinstance(c, str) for c in t["checks"])

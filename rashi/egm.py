@@ -69,17 +69,21 @@ def invalid_checks(checks, workdir):
 
 
 def goldfish_review(llm, spec_text, workdir):
-    """Fresh context: only the spec and referenced files are passed."""
+    """Fresh context: only the spec and referenced files are passed. One JSON-strictness retry:
+    the live flash-model run (2026-11-13) answered with prose once; a reminder fixed the shape."""
     refs = "".join(f"\n--- {r} ---\n{t}" for r, t in referenced_files(spec_text, workdir))
-    raw = llm(GOLDFISH_SYS, f"SPEC:\n{spec_text}\n\nREFERENCED FILES:{refs or ' (none)'}")
-    m = re.search(r"\{.*\}", raw, re.S)
-    try:
-        findings = json.loads(m.group(0))["findings"] if m else None
-    except (ValueError, KeyError):
-        findings = None
-    if not isinstance(findings, list):
-        return [{"severity": "high", "issue": "reviewer output unparsable", "evidence": raw[:200]}]
-    return [f for f in findings if isinstance(f, dict) and "issue" in f]
+    user = f"SPEC:\n{spec_text}\n\nREFERENCED FILES:{refs or ' (none)'}"
+    for attempt in range(2):
+        raw = llm(GOLDFISH_SYS, user if attempt == 0 else
+                  "Your last reply was not parseable. Reply with JSON only, nothing else.\n\n" + user)
+        m = re.search(r"\{.*\}", raw, re.S)
+        try:
+            findings = json.loads(m.group(0))["findings"] if m else None
+        except (ValueError, KeyError):
+            findings = None
+        if isinstance(findings, list):
+            return [f for f in findings if isinstance(f, dict) and "issue" in f]
+    return [{"severity": "high", "issue": "reviewer output unparsable", "evidence": raw[:200]}]
 
 
 def drift_report(spec_text, workdir):

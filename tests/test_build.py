@@ -58,3 +58,12 @@ def test_ready_agents_filters_and_templates():
     fr = {"codex": {"ready": True}, "aider": {"ready": False}, "unknown": {"ready": True}}
     ra = build.ready_agents(fr)
     assert list(ra) == ["codex"] and ra["codex"][0] == "codex"
+
+
+def test_split_retries_once_on_unparsable_then_succeeds():
+    calls = {"n": 0}
+    def llm(s, u):
+        calls["n"] += 1
+        return "prose" if calls["n"] == 1 else '{"tasks":[{"id":"a","goal":"g","checks":["true"]}]}'
+    tasks, how = build.split_tasks(llm, "spec", [{"id": "c1", "cmd": "true"}])
+    assert how == "split" and calls["n"] == 2 and tasks[0]["id"] == "a"
