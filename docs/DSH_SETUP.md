@@ -27,8 +27,11 @@
 - The sandbox has 2 GB RAM; a full source build of the deepseek-harness monorepo
   does not finish there (host-compiler gate). The npm install above is the exact
   pinned release (0.2.2-rc.3 is the release commit), so no source build is needed.
-- `dsh-mobile setup` (LAN certificate + phone pairing) was not run in the sandbox:
-  pairing belongs on the computer the phone connects to. Run it on his laptop
-  (last lines of `scripts/install_dsh.sh`).
+- `dsh-mobile setup` (LAN certificate + phone pairing) belongs on the computer the
+  phone connects to; it exits with "no active private LAN address" where there is no
+  LAN. Its CLI imports `@deepseek-ai/cordis`, an optional peer dependency pnpm does
+  not install into the profile, so `dsh plugin exec` fails with ERR_MODULE_NOT_FOUND
+  until you link the copy that ships with dsh - `scripts/install_dsh.sh` does this.
+  Verified 2026-11-13: with the link, `setup` runs and stops at exactly the LAN check.
 - `dsh web` gates the UI behind a per-boot token URL. Treat that URL like a
   password; never commit or share it.
