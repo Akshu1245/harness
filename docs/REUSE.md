@@ -11,8 +11,8 @@
 | Bounty scope parsing | root4loot/rescope | 331 | MIT | candidate for importing program scopes |
 | Spec + fresh reviewers | google/elephant-goldfish-model | 17,820 | Apache-2.0 | pattern reimplemented in rashi/egm.py |
 | Decision router | NandhaKishorM/laya | n/a | Apache-2.0 | first-preference router, measured |
-| IDE front door | deepseek-ai/deepseek-harness | 280,228 | MIT | pinned at 39163dd30f703a79079e2d2446545cff3c453738 (master, 2026-11-13, dsh-0.2.2); plugin pending |
-| Android app | saya-ch/dsh-mobile | 846 | Apache-2.0 | pinned at 1616b43b61c7b22c170da1dc1eccdc4053c0cfbd (main, 2026-11-13); install pending his OK |
+| IDE front door | deepseek-ai/deepseek-harness | 280,228 | MIT | pinned at 39163dd30f703a79079e2d2446545cff3c453738 (master, 2026-11-13) = npm @deepseek-ai/dsh@0.2.2-rc.3; installed and boot-verified 2026-11-13, see docs/DSH_SETUP.md |
+| Android app | saya-ch/dsh-mobile | 846 | Apache-2.0 | pinned at 1616b43b61c7b22c170da1dc1eccdc4053c0cfbd (main, 2026-11-13) = npm dsh-mobile@0.8.8; installed into the dsh web profile 2026-11-13, phone pairing runs on his laptop |
 | Minimal-diff coding rules | DietrichGebert/ponytail | 190,051 | MIT | rules distilled into rashi/rules.py (AGENTS.md, main, 2026-11-13); always consulted |
 | Anti-slop writing rules | petergyang/no-ai-slop | 13,452 | MIT | rules distilled into rashi/rules.py (SKILL.md, main, 2026-11-13); always consulted |
 | Multi-agent orchestrator UI | BloopAI/vibe-kanban | 28,673 | Apache-2.0 | reference for the front door; too large to embed |
