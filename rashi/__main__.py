@@ -1,19 +1,24 @@
 """The harness front door. Usage:
     python -m rashi fleet                 # detect agent CLIs, test readiness, print fixes
     python -m rashi build "build X" DIR   # one press: spec -> approve -> distribute -> verify
+    python -m rashi bench                 # run the fixed benchmark tasks on a free model
     python -m rashi warroom DIR [port]    # live event stream UI for a run
 
-`build` needs one free provider key in the environment for the spec/split calls
-(KENARI_API_KEY first, then the other free gateways); the coding itself is done by the
-CLI agents fleet found ready. No key, no guesswork: it exits with a clear message.
+`build`/`bench` need one free provider key in the environment (KENARI_API_KEY first,
+then the other free gateways); the coding in `build` is done by the CLI agents fleet
+found ready. No key, no guesswork: they exit with a clear message.
 """
 import argparse
+import json
 import os
 import sys
+from pathlib import Path
 
+from . import bench as benchmod
 from .build import one_press
 from .fleet import detect_all, report
-from .llm_agent import FREE_BASE_URLS, FREE_ONLY_MODELS
+from .llm_agent import FREE_BASE_URLS, FREE_ONLY_MODELS, make_agent
+from .loop import run_loop
 
 KEY_ENV = {"kenari": "KENARI_API_KEY", "explabs": "EXPLABS_API_KEY", "apinex": "APINEX_API_KEY",
            "respan": "RESPAN_API_KEY", "openrouter": "OPENROUTER_API_KEY"}
@@ -56,6 +61,11 @@ def main(argv=None):
     w = sub.add_parser("warroom", help="serve the event-stream UI for a run directory")
     w.add_argument("dir")
     w.add_argument("port", type=int, nargs="?", default=8765)
+    bn = sub.add_parser("bench", help="fixed benchmark tasks on a free model; appends results JSONL")
+    bn.add_argument("--tasks", default=str(Path(__file__).resolve().parent.parent / "benchmarks" / "tasks.json"))
+    bn.add_argument("--out", default="benchmarks/results.jsonl")
+    bn.add_argument("--dir", default="/tmp/rashi-bench", help="parent dir for per-task workdirs")
+    bn.add_argument("--max-iters", type=int, default=6)
     args = ap.parse_args(argv)
 
     if args.cmd == "fleet":
@@ -66,13 +76,28 @@ def main(argv=None):
         print(f"war room on http://127.0.0.1:{args.port}/  (events: {args.dir}/events.jsonl)")
         serve(args.dir, args.port).serve_forever()
         return 0
-    # build
+    # build / bench
     found = find_llm()
     if not found:
         print("No free provider key in the environment. Set one of: "
               + ", ".join(KEY_ENV.values()), file=sys.stderr)
         return 2
     provider, model, key = found
+    if args.cmd == "bench":
+        agent = make_agent(provider, model, key)
+        tasks = benchmod.load_tasks(args.tasks)
+
+        def runner(t):
+            wd = Path(args.dir) / t["id"]
+            checks = [{"id": f"{t['id']}-c{i+1}", "cmd": c} for i, c in enumerate(t["checks"])]
+            status, _ = run_loop({"goal": t["goal"], "workdir": str(wd), "checks": checks,
+                                  "max_iters": args.max_iters}, agent)
+            return {"status": status}
+
+        summary = benchmod.run_bench(tasks, runner, args.out)
+        print(json.dumps({"provider": provider, "model": model,
+                          **{k: v for k, v in summary.items() if k != "rows"}}))
+        return 0 if summary["done_verified"] == summary["n"] else 1
     llm = make_llm(provider, model, key)
 
     def approve(spec, findings):

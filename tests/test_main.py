@@ -31,3 +31,33 @@ def test_build_without_key_exits_clean(capsys):
         os.environ.pop(v, None)
     assert main(["build", "make x", "/tmp/x"]) == 2
     assert "No free provider key" in capsys.readouterr().err
+
+
+def test_bench_command_wires_live_runner(tmp_path, monkeypatch, capsys):
+    from rashi import __main__ as m
+    monkeypatch.setattr(m, "find_llm", lambda: ("kenari", "glm-4-7-flash:free", "k"))
+    made = {}
+    monkeypatch.setattr(m, "make_agent", lambda p, mod, k: made.setdefault("agent", (p, mod, k)) or object())
+    seen = {}
+
+    def fake_loop(spec, agent):
+        seen.setdefault("specs", []).append(spec)
+        return "DONE_VERIFIED", []
+
+    monkeypatch.setattr(m, "run_loop", fake_loop)
+    out = tmp_path / "r.jsonl"
+    rc = m.main(["bench", "--out", str(out), "--dir", str(tmp_path / "wd")])
+    assert rc == 0
+    assert made["agent"] == ("kenari", "glm-4-7-flash:free", "k")
+    assert len(seen["specs"]) == 3  # one run_loop per benchmark task
+    assert all(s["checks"][0]["id"].endswith("-c1") for s in seen["specs"])
+    rows = out.read_text().splitlines()
+    assert len(rows) == 3 and all('"DONE_VERIFIED"' in r for r in rows)
+    assert '"pass_rate": 1.0' in capsys.readouterr().out
+
+
+def test_bench_without_key_exits_clean(capsys, monkeypatch):
+    from rashi import __main__ as m
+    monkeypatch.setattr(m, "find_llm", lambda: None)
+    assert m.main(["bench"]) == 2
+    assert "No free provider key" in capsys.readouterr().err
