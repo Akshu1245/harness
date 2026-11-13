@@ -15,7 +15,7 @@ section with: `python -m rashi.model_table /path/to/fresh/kenari-models.json`.
 Benchmark honesty note: bench-fib first shipped with a pytest-dependent check and failed
 STOPPED_MAX_ITERS even though the model wrote correct code - the loop ran `python`, which has
 no pytest in a bare environment. The loop was right to refuse DONE; the check was wrong.
-Checks in benchmarks/tasks.json now use only stdlib assumptions. Raw rows: benchmarks/results.jsonl.
+Checks in rashi/data/tasks.json (packaged; was benchmarks/tasks.json) now use only stdlib assumptions. Raw rows: benchmarks/results.jsonl.
 
 Lesson from the one-press live run: the flash model drafted a clean spec with three valid checks
 and wrote correct code first try, but its JSON-only replies (goldfish findings, task split) came

@@ -20,3 +20,6 @@ build_full_conversation_archive.py
 extract_chat_history.py
 PROGRESS.json
 .rashi/
+build/
+dist/
+*.egg-info/

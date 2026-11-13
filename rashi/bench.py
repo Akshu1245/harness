@@ -73,6 +73,7 @@ def run_bench(tasks, runner, out_path):
         row["wall_s"] = round(time.time() - start, 1)
         row["ts"] = time.strftime("%Y-%m-%dT%H:%M:%S")
         rows.append(row)
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
         with open(out_path, "a") as f:
             f.write(json.dumps(row) + "\n")
     done = sum(r["status"] == "DONE_VERIFIED" for r in rows)

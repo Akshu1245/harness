@@ -62,7 +62,7 @@ def main(argv=None):
     w.add_argument("dir")
     w.add_argument("port", type=int, nargs="?", default=8765)
     bn = sub.add_parser("bench", help="fixed benchmark tasks on a free model; appends results JSONL")
-    bn.add_argument("--tasks", default=str(Path(__file__).resolve().parent.parent / "benchmarks" / "tasks.json"))
+    bn.add_argument("--tasks", default=str(Path(__file__).resolve().parent / "data" / "tasks.json"))
     bn.add_argument("--out", default="benchmarks/results.jsonl")
     bn.add_argument("--dir", default="/tmp/rashi-bench", help="parent dir for per-task workdirs")
     bn.add_argument("--max-iters", type=int, default=6)

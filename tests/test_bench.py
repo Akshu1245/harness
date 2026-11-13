@@ -1,10 +1,11 @@
+from pathlib import Path
 import json
 
 from rashi import bench
 
 
 def test_load_tasks_validates_shape(tmp_path):
-    tasks = bench.load_tasks("benchmarks/tasks.json")
+    tasks = bench.load_tasks(str(Path(__file__).resolve().parent.parent / "rashi" / "data" / "tasks.json"))
     assert len(tasks) == 5 and all(bench.falsifiable(t, tmp_path / t["id"]) for t in tasks)
     guard = next(t for t in tasks if t["id"] == "bench-guard")
     assert set(guard["seed"]) == set(guard["protected"])  # every seeded file is guarded
@@ -58,7 +59,7 @@ def test_every_benchmark_task_is_falsifiable(tmp_path):
     """TestSuiteBench (pass 3, pain 17): valid checks can still be weak. Every shipped
     task must have at least one check that FAILS on the seeded-but-unbuilt workdir -
     otherwise DONE could be granted without any work."""
-    tasks = bench.load_tasks("benchmarks/tasks.json")
+    tasks = bench.load_tasks(str(Path(__file__).resolve().parent.parent / "rashi" / "data" / "tasks.json"))
     for t in tasks:
         failing = bench.falsifiable(t, tmp_path / t["id"])
         assert failing, f"{t['id']}: every check passes before any work - the task proves nothing"
@@ -68,7 +69,7 @@ def test_every_mutant_is_killed_by_the_checks(tmp_path):
     """TestSuiteBench in miniature (pass 3 pain 17): every shipped task carries
     wrong-but-plausible mutants, and the task's checks must kill every one of them.
     A surviving mutant proves the suite can be gamed - it gets strengthened, not excused."""
-    tasks = bench.load_tasks("benchmarks/tasks.json")
+    tasks = bench.load_tasks(str(Path(__file__).resolve().parent.parent / "rashi" / "data" / "tasks.json"))
     for t in tasks:
         assert t.get("mutants"), f"{t['id']}: no mutants - check strength is unproven"
         for i, m in enumerate(t["mutants"]):

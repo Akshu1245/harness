@@ -10,7 +10,7 @@ import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-PAGE = Path(__file__).resolve().parent.parent / "visual_war_room.html"
+PAGE = Path(__file__).resolve().parent / "data" / "visual_war_room.html"
 
 
 def make_handler(workdir):
