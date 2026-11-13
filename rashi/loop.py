@@ -63,8 +63,12 @@ def snapshot(workdir):
     Loop bookkeeping dirs (.rashi rollback stash, .spill output) are not agent work."""
     out = {}
     for fp in sorted(Path(workdir).rglob("*")):
-        if fp.is_file() and not any(part in SKIP_DIRS for part in fp.parts):
-            out[str(fp.relative_to(workdir))] = hashlib.sha256(fp.read_bytes()).hexdigest()
+        if fp.is_file() and not fp.is_symlink() and not any(part in SKIP_DIRS for part in fp.parts):
+            h = hashlib.sha256()
+            with open(fp,"rb") as stream:
+                for chunk in iter(lambda:stream.read(65536), b""):
+                    h.update(chunk)
+            out[str(fp.relative_to(workdir))] = h.hexdigest()
     return out
 
 
@@ -74,68 +78,106 @@ def changed_since(before, workdir):
             "removed": sorted(p for p in before if p not in after)}
 
 
-def stash(workdir, before, n, max_bytes=1_000_000, keep=3):
-    """Per-step rollback store (B5): after agent step n, record what changed and keep the
-    pre-step bytes (captured by stash_in) under .rashi/rollback/<n>/. Files over max_bytes are
-    recorded as uncopied, never silently half-restored. Only the last `keep` stashes are kept."""
-    after = snapshot(workdir)
-    added = sorted(p for p in after if p not in before)
-    changed = sorted(p for p in after if p in before and before[p] != after[p])
-    if not added and not changed:
-        return None
-    root = Path(workdir) / ".rashi" / "rollback"
-    dest = root / str(n)
-    dest.mkdir(parents=True, exist_ok=True)
-    big = []
-    for rel, content in stash.pending.pop(str(workdir), {}).items():
-        if rel not in changed:
-            continue
-        if len(content) > max_bytes:
-            big.append(rel); continue
-        fp = dest / rel
-        fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_bytes(content)
-    (dest / "manifest.json").write_text(json.dumps({"added": added, "changed": changed, "uncopied": big}))
-    for old_dir in sorted((d for d in root.iterdir() if d.is_dir() and d.name.isdigit()), key=lambda d: int(d.name))[:-keep]:
-        for fp in sorted(old_dir.rglob("*"), reverse=True):
-            fp.unlink() if fp.is_file() else fp.rmdir()
-        old_dir.rmdir()
-    return {"added": added, "changed": changed, "uncopied": big}
+def _inside(root, rel):
+    """Cooperative rollback guard: reject traversal and symlink components, including leaf.
+    This is not race-proof against a concurrently malicious process; agents must be stopped."""
+    root = Path(root).resolve()
+    relpath = Path(rel)
+    if relpath.is_absolute() or ".." in relpath.parts:
+        raise ValueError("unsafe rollback path")
+    target = root
+    for part in relpath.parts:
+        target = target / part
+        if target.is_symlink():
+            raise ValueError("symlink in rollback path")
+    return target
 
 
-stash.pending = {}  # workdir -> {rel path: pre-step bytes}, filled by stash_in
-
-
-def stash_in(workdir):
-    """Capture pre-step content so a later regression can be undone."""
-    before = snapshot(workdir)
-    pending = {}
+def stash_in(workdir, max_bytes=1_000_000, max_total=8_000_000):
+    """Bound pre-step bytes before reading; exclude runtime logs/state from undo."""
+    before = {rel:sha for rel,sha in snapshot(workdir).items()
+              if rel not in ("PROGRESS.json", "events.jsonl", ".replay.jsonl", ".spend.json")}
+    pending, total = {}, 0
     for rel in before:
         try:
-            pending[rel] = (Path(workdir) / rel).read_bytes()
-        except OSError:
+            fp = _inside(workdir,rel)
+            size = fp.stat().st_size
+            if size <= max_bytes and total + size <= max_total:
+                with open(fp,"rb") as stream:
+                    content = stream.read(max_bytes + 1)
+                if len(content) <= max_bytes:
+                    pending[rel] = (content,fp.stat().st_mode & 0o777)
+                    total += len(content)
+        except (OSError, ValueError):
             pass
     stash.pending[str(workdir)] = pending
     return before
 
 
+def stash(workdir, before, n, max_bytes=1_000_000, keep=3):
+    """Record modified/deleted pre-step bytes and additions. Bounded capture, last 3 stashes."""
+    after = {rel:sha for rel,sha in snapshot(workdir).items()
+             if rel not in ("PROGRESS.json", "events.jsonl", ".replay.jsonl", ".spend.json")}
+    added = sorted(set(after)-set(before))
+    changed = sorted(p for p in after if p in before and before[p] != after[p])
+    removed = sorted(set(before)-set(after))
+    pending = stash.pending.pop(str(workdir), {})
+    if not added and not changed and not removed:
+        return None
+    root = _inside(workdir,".rashi/rollback")
+    root.mkdir(parents=True, exist_ok=True)
+    dest = _inside(root,str(n))
+    if dest.exists():
+        import shutil
+        shutil.rmtree(dest)
+    dest.mkdir()
+    uncopied, modes = [], {}
+    for rel in changed + removed:
+        value = pending.get(rel)
+        if value is None:
+            uncopied.append(rel); continue
+        content, mode = value
+        fp = _inside(dest,"files/"+rel)
+        fp.parent.mkdir(parents=True, exist_ok=True)
+        fp.write_bytes(content)
+        modes[rel] = mode
+    manifest = {"added":added,"changed":changed,"removed":removed,"uncopied":uncopied,"modes":modes}
+    (dest/"manifest.json").write_text(json.dumps(manifest))
+    import shutil
+    for old in sorted((d for d in root.iterdir() if d.is_dir() and not d.is_symlink()
+                       and d.name.isdigit()),key=lambda d:int(d.name))[:-keep]:
+        shutil.rmtree(old)
+    return manifest
+
+
+stash.pending = {}
+
+
 def rollback(workdir, n):
-    """Undo agent step n: restore stashed pre-step content, delete files the step added."""
-    dest = Path(workdir) / ".rashi" / "rollback" / str(n)
-    manifest = json.loads((dest / "manifest.json").read_text())
-    deleted = []
+    """Undo a stopped cooperative agent step; unsafe or uncaptured paths are explicit failures."""
+    dest = _inside(workdir,".rashi/rollback/"+str(n))
+    manifest = json.loads(_inside(dest,"manifest.json").read_text())
+    deleted, restored, missing = [], [], set(manifest["uncopied"])
     for rel in manifest["added"]:
-        fp = Path(workdir) / rel
-        if fp.is_file():
-            fp.unlink(); deleted.append(rel)
-    restored, missing = [], []
-    for rel in manifest["changed"]:
-        src = dest / rel
-        if src.is_file():
-            (Path(workdir) / rel).write_bytes(src.read_bytes()); restored.append(rel)
-        else:
-            missing.append(rel)
-    return {"restored": restored, "deleted": deleted, "unrestorable": manifest["uncopied"] + missing}
+        try:
+            fp = _inside(workdir,rel)
+            if fp.is_file():
+                fp.unlink(); deleted.append(rel)
+        except (OSError,ValueError):
+            missing.add(rel)
+    for rel in manifest["changed"] + manifest.get("removed",[]):
+        try:
+            fp = _inside(workdir,rel)
+            src = _inside(dest,"files/"+rel)
+            if not src.is_file():
+                missing.add(rel); continue
+            fp.parent.mkdir(parents=True,exist_ok=True)
+            fp.write_bytes(src.read_bytes())
+            fp.chmod(manifest.get("modes",{}).get(rel,0o600))
+            restored.append(rel)
+        except (OSError,ValueError):
+            missing.add(rel)
+    return {"restored":restored,"deleted":deleted,"unrestorable":sorted(missing)}
 
 
 def run_loop(spec, agent, state_path=None):
@@ -143,15 +185,43 @@ def run_loop(spec, agent, state_path=None):
     Path(wd).mkdir(parents=True, exist_ok=True)  # the loop owns its workdir; never crash on a missing one
     state_path = state_path or os.path.join(wd, "PROGRESS.json")
     log = []
-    if spec.get("resume", True) and Path(state_path).is_file():  # resume (B6): continue an interrupted run
+    checks = spec.get("checks")
+    if (not isinstance(checks,list) or not checks or
+        any(not isinstance(c,dict) or not isinstance(c.get("cmd"),str) or not c["cmd"].strip()
+            or not isinstance(c.get("id"),str) for c in checks) or
+        len({c["id"] for c in checks}) != len(checks)):
+        emit(wd,"status",status="FAILED_INVALID_CHECKS",iters=0)
+        return "FAILED_INVALID_CHECKS", []
+    identity = hashlib.sha256(json.dumps({"goal":spec["goal"],"checks":checks,
+                                        "protected":spec.get("protected",[])},sort_keys=True).encode()).hexdigest()
+    feedback = ""
+    protected_start = digest(wd,spec.get("protected",[]))
+    if spec.get("resume", True) and Path(state_path).is_file():
         try:
             prev = json.loads(Path(state_path).read_text())
-            if prev.get("goal") == spec["goal"] and prev.get("status") not in (None, "DONE_VERIFIED"):
-                log = list(prev.get("log", []))
+            if (isinstance(prev,dict) and prev.get("goal") == spec["goal"] and
+                prev.get("status") in ("RUNNING","STOPPED_MAX_ITERS","STOPPED_TIME")):
+                if prev.get("spec_id") != identity or prev.get("protected_digest") != protected_start:
+                    emit(wd,"status",status="FAILED_RESUME_IDENTITY_MISMATCH",iters=0)
+                    return "FAILED_RESUME_IDENTITY_MISMATCH", []
+                old_log = prev.get("log",[])
+                if not isinstance(old_log,list) or any(not isinstance(r,dict) for r in old_log):
+                    raise ValueError("invalid resume log")
+                log = old_log
+                feedback = prev.get("feedback", "")
                 if log:
                     emit(wd, "resumed", iters_done=len(log))
-        except (ValueError, OSError):
-            pass  # a corrupt state file starts a fresh run, never a crash
+        except (ValueError,OSError,TypeError):
+            emit(wd,"warn",what="invalid resume state; starting fresh")
+
+    def save_state(status):
+        payload = {"status":status,"goal":spec["goal"],"spec_id":identity,
+                   "protected_digest":protected_start,"feedback":feedback,"log":log}
+        dest = Path(state_path)
+        # Replace state atomically so interruption cannot leave a partial JSON document.
+        temporary = dest.with_name(dest.name+".tmp")
+        temporary.write_text(json.dumps(payload,indent=1))
+        temporary.replace(dest)
     from . import sandbox as _sandbox
     use_sandbox = _sandbox.requested(spec)
     sandbox_argv = None
@@ -161,14 +231,14 @@ def run_loop(spec, agent, state_path=None):
         else:
             status = "FAILED_SANDBOX_UNAVAILABLE"
             emit(wd, "status", status=status, iters=0)
-            Path(state_path).write_text(json.dumps({"status": status, "goal": spec["goal"], "log": log}))
+            save_state(status)
             return status, log
     protected = spec.get("protected", [])
     base = digest(wd, protected)
     absent = [p for p in protected if not (Path(wd) / p).exists()]
     if absent:  # an absent protected path silently protects nothing; say so in the event log
         emit(wd, "warn", what="protected paths absent", paths=absent)
-    start, feedback, status = time.time(), "", "STOPPED_MAX_ITERS"
+    start, status = time.time(), "STOPPED_MAX_ITERS"
     # Baseline: check the starting tree once. Regression is judged against the last check
     # result BEFORE each agent step, so the first step needs a baseline to be judged against.
     # On a resumed run the baseline is just re-measured on the current tree.
@@ -180,10 +250,11 @@ def run_loop(spec, agent, state_path=None):
         log.append({"iter": 0, "failed": [r[0] for r in prev_failed], "agent_error": None,
                     "tampered_by": "checks"})
         emit(wd, "iter", iter=0, failed=[r[0] for r in prev_failed], tampered_by="checks")
-        Path(state_path).write_text(json.dumps(
-            {"status": "FAILED_TAMPERED_PROTECTED_FILES", "goal": spec["goal"], "log": log}, indent=1))
+        save_state("FAILED_TAMPERED_PROTECTED_FILES")
         emit(wd, "status", status="FAILED_TAMPERED_PROTECTED_FILES", iters=0)
         return "FAILED_TAMPERED_PROTECTED_FILES", log
+    baseline_feedback = "\n".join(f"{r[0]} exit {r[1]}: {r[2]}" for r in prev_failed)
+    feedback = (feedback + "\nCurrent checks:\n" + baseline_feedback).strip()
     prev_tree = None
     for i in range(len(log) + 1, spec.get("max_iters", 6) + 1):
         if time.time() - start > spec.get("max_seconds", 900):
@@ -194,7 +265,11 @@ def run_loop(spec, agent, state_path=None):
             agent(spec["goal"], feedback, wd)
         except Exception as ex:  # agent failure is recorded, loop continues
             err = f"{type(ex).__name__}: {str(ex)[:200]}"
-        stashed = stash(wd, before, i)
+        try:
+            stashed = stash(wd, before, i)
+        except (ValueError,OSError) as ex:
+            emit(wd,"warn",what="rollback storage unsafe or unavailable",detail=str(ex)[:160])
+            status = "FAILED_ROLLBACK_STORAGE"; break
         if digest(wd, protected) != base:
             status = "FAILED_TAMPERED_PROTECTED_FILES"; break
         results = [(c["id"],) + run_cmd(c["cmd"], wd, timeout=spec.get("check_timeout", 300),
@@ -207,7 +282,7 @@ def run_loop(spec, agent, state_path=None):
             status = "FAILED_TAMPERED_PROTECTED_FILES"; break
         log.append({"iter": i, "failed": [r[0] for r in failed], "agent_error": err})
         emit(wd, "iter", iter=i, failed=[r[0] for r in failed], agent_error=err)
-        Path(state_path).write_text(json.dumps({"status": "RUNNING", "goal": spec["goal"], "log": log}, indent=1))
+        save_state("RUNNING")
         if not failed:
             status = "DONE_VERIFIED"; break
         # Regression rollback (B5): a check that passed before this agent step and fails now means
@@ -220,13 +295,18 @@ def run_loop(spec, agent, state_path=None):
             emit(wd, "rollback", iter=i, regressed=regressed, restored=rb["restored"],
                  deleted=rb["deleted"], unrestorable=rb["unrestorable"])
             _memory.remember(wd, "rollback", f"iter {i}: rolled back a step that broke {regressed}")
+            if rb["unrestorable"]:
+                status = "FAILED_ROLLBACK_INCOMPLETE"; break
+            restored_results = [(c["id"],) + run_cmd(c["cmd"], wd,
+                                timeout=spec.get("check_timeout",300),
+                                spill_dir=Path(wd)/".spill", sandbox_argv=sandbox_argv)
+                                for c in spec["checks"]]
+            prev_failed = [r for r in restored_results if r[1] != 0]
         # Repeat guard (pattern from dsh repeat-tool-reminder): an iteration that changed nothing
         # and failed the same checks as the one before is looping, not working - say so, advisory.
         # Runtime files (state, events, spill, replay tape) are excluded or the tree always changes.
-        now = {str(fp.relative_to(wd)): hashlib.sha256(fp.read_bytes()).hexdigest()
-               for fp in sorted(Path(wd).rglob("*")) if fp.is_file()
-               and not any(part in SKIP_DIRS for part in fp.parts)
-               and fp.name not in ("PROGRESS.json", "events.jsonl", ".replay.jsonl")}
+        now = {rel:sha for rel,sha in snapshot(wd).items()
+               if rel not in ("PROGRESS.json","events.jsonl",".replay.jsonl")}
         eff_failed = prev_failed if rolled_back else failed
         if eff_failed == prev_failed and now == prev_tree:
             emit(wd, "warn", what="no progress: same failures, no file changes", iter=i)
@@ -235,7 +315,8 @@ def run_loop(spec, agent, state_path=None):
         if rolled_back:
             feedback = (f"Your last change was ROLLED BACK: it broke previously-passing checks "
                         f"{regressed}. Do not re-apply it; find a different approach.\n" + feedback)
-    Path(state_path).write_text(json.dumps({"status": status, "goal": spec["goal"], "log": log}, indent=1))
+        save_state("RUNNING")
+    save_state(status)
     emit(wd, "status", status=status, iters=len(log))
     _memory.remember(wd, "done" if status == "DONE_VERIFIED" else "note",
                      f"goal '{spec['goal'][:120]}' ended {status} after {len(log)} iters")

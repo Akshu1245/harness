@@ -174,3 +174,69 @@ def test_rollback_deletes_added_files(tmp_path):
             P(wd, "junk.txt").write_text("bad")      # breaks b (b was passing)
     run_loop(spec, agent)
     assert not (tmp_path / "junk.txt").exists()
+
+
+def test_rollback_restores_removed_file_and_mode(tmp_path):
+    from rashi.loop import stash_in,stash,rollback
+    p = tmp_path/'nested'/'script.sh'; p.parent.mkdir(); p.write_text('echo good'); p.chmod(0o755)
+    before = stash_in(tmp_path); p.unlink(); p.parent.rmdir(); stash(tmp_path,before,1)
+    assert rollback(tmp_path,1)['restored'] == ['nested/script.sh']
+    assert p.read_text() == 'echo good' and p.stat().st_mode & 0o777 == 0o755
+
+
+def test_rollback_refuses_symlink_target(tmp_path):
+    from rashi.loop import stash_in,stash,rollback
+    outside = tmp_path.parent/(tmp_path.name+'-outside'); outside.write_text('private')
+    p = tmp_path/'x.txt'; p.write_text('before')
+    before = stash_in(tmp_path); p.unlink(); p.symlink_to(outside); stash(tmp_path,before,1)
+    r = rollback(tmp_path,1)
+    assert 'x.txt' in r['unrestorable'] and outside.read_text() == 'private'
+
+
+def test_stash_capture_is_bounded_and_cleared(tmp_path):
+    from rashi.loop import stash_in,stash
+    (tmp_path/'big').write_bytes(b'a'*30)
+    (tmp_path/'small').write_text('ok')
+    before = stash_in(tmp_path,max_bytes=10,max_total=10)
+    assert 'big' not in stash.pending[str(tmp_path)]
+    stash(tmp_path,before,1)
+    assert str(tmp_path) not in stash.pending
+
+
+def test_resume_refuses_changed_checks(tmp_path):
+    from rashi.loop import run_loop
+    spec = {'goal':'g','workdir':str(tmp_path),'checks':[{'id':'a','cmd':'false'}],'max_iters':1}
+    assert run_loop(spec,lambda *a:None)[0] == 'STOPPED_MAX_ITERS'
+    changed = dict(spec,checks=[{'id':'a','cmd':'true'}],max_iters=2)
+    calls=[]
+    assert run_loop(changed,lambda *a:calls.append(a))[0] == 'FAILED_RESUME_IDENTITY_MISMATCH'
+    assert calls == []
+
+
+def test_empty_checks_are_not_done(tmp_path):
+    from rashi.loop import run_loop
+    assert run_loop({'goal':'g','workdir':str(tmp_path),'checks':[]},lambda *a:None)[0] == 'FAILED_INVALID_CHECKS'
+
+
+def test_resume_carries_last_failure_feedback(tmp_path):
+    from rashi.loop import run_loop
+    spec = {'goal':'g','workdir':str(tmp_path),'checks':[{'id':'a','cmd':'test -f out'}],'max_iters':1}
+    run_loop(spec,lambda *a:None)
+    seen=[]
+    def fix(g,feedback,wd):
+        seen.append(feedback)
+        (tmp_path/'out').write_text('ok')
+    assert run_loop(dict(spec,max_iters=2),fix)[0] == 'DONE_VERIFIED'
+    assert 'a exit' in seen[0]
+
+
+def test_incomplete_rollback_stops_instead_of_continuing(tmp_path):
+    from rashi.loop import run_loop
+    p=tmp_path/'large.txt'; p.write_text('good' + 'x'*1_000_001)
+    spec={'goal':'g','workdir':str(tmp_path),'max_iters':3,
+          'checks':[{'id':'a','cmd':"grep -q '^good' large.txt"}]}
+    calls=[]
+    def break_it(*a):
+        calls.append(a); p.write_text('bad')
+    assert run_loop(spec,break_it)[0] == 'FAILED_ROLLBACK_INCOMPLETE'
+    assert len(calls) == 1

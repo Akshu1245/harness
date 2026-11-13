@@ -104,3 +104,11 @@ found by audits / mutation testing / live runs / fresh-env runs, each with proof
 - Verification: upstream HumanEval/0..2 canonical calibration 3/3, deliberately broken completions 0/3. These are evaluator self-tests, not a model score. Model measurement awaits free quota.
 - The public grader uses a new bwrap root rather than read-only host root. Tests check private paths/env are not exposed and early exit is not a pass. This is defense in depth, not a claim of a fully adversarial sandbox.
 - Deferred with reasons: heavyweight Docker suites, unresolved exercise/dataset redistribution rights, and full-set statistical/contamination analysis. Nothing has been silently called fully ready.
+
+## Rollback/resume correction, 2026-11-13 11:15pm
+
+- Pre-step content capture now checks a 1MB per-file / 8MB total cap BEFORE reading, and releases the pending capture on no-change steps. Runtime logs/state are not rolled back.
+- Deleted files and their saved mode are recovered. Rollback rejects traversal and symlink path components rather than writing through them. Incomplete recovery stops the run instead of claiming a successful undo. Agent must be stopped; these guards are not race-proof against a hostile concurrent process.
+- Resume now binds state to goal/checks/protected-path identity and protected-content digest. Same-goal changed checks/protected content are refused. State is atomically replaced, final failure feedback is retained, and current checks are measured before the resumed agent step. Legacy state without identity is not silently trusted.
+- Empty or duplicate-ID check sets cannot produce DONE_VERIFIED.
+- Proof: seven added loop tests cover deleted-file mode recovery, symlink refusal, bounded capture, changed-check identity rejection, empty checks, resumed feedback and incomplete recovery fail-stop. Still not full adversarial filesystem isolation; CLI agents remain outside the check sandbox.
