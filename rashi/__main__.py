@@ -3,7 +3,6 @@
     python -m rashi ask "idea"            # intake: all clarifying questions in one batch
     python -m rashi build "build X" DIR   # one press: spec -> approve -> distribute -> verify
                                           #   --answers FILE folds intake answers into the goal
-                                          #   --approval full-access|review-and-accept|ask-for-everything
     python -m rashi bench                 # run the fixed benchmark tasks on a free model
     python -m rashi warroom DIR [port]    # live event stream UI for a run
 
@@ -18,7 +17,6 @@ import sys
 from pathlib import Path
 
 from . import bench as benchmod
-from .approval import MODES, approver, file_approver
 from .build import one_press
 from .fleet import detect_all, report
 from .intake import questions, with_answers
@@ -64,13 +62,8 @@ def main(argv=None):
     b = sub.add_parser("build", help="one press: research, plan, distribute, verify")
     b.add_argument("goal")
     b.add_argument("dir")
-    b.add_argument("--yes", action="store_true", help="same as --approval full-access")
-    b.add_argument("--approval", choices=MODES, default="review-and-accept",
-                   help="exactly three modes exist; default asks once on the spec")
+    b.add_argument("--yes", action="store_true", help="approve the spec without prompting")
     b.add_argument("--answers", help="file with answers to the `rashi ask` intake batch")
-    b.add_argument("--web", action="store_true",
-                   help="approve through the war-room page instead of the terminal "
-                        "(serve `rashi warroom DIR` first)")
     b.add_argument("--model", help="override the model; a paid model needs RASHI_ALLOW_PAID=1")
     w = sub.add_parser("warroom", help="serve the event-stream UI for a run directory")
     w.add_argument("dir")
@@ -147,13 +140,15 @@ def main(argv=None):
         return 0 if summary["done_verified"] == summary["n"] else 1
     llm = make_llm(provider, model, key)
 
-    mode = "full-access" if args.yes else args.approval
     goal = args.goal
     if args.answers:
         goal = with_answers(goal, Path(args.answers).read_text())
-    approve = file_approver(mode, args.dir) if args.web else approver(mode)
-    if args.web:
-        print(f"approval via the war-room page: rashi warroom {args.dir} (mode: {mode})")
+
+    def approve(spec, findings):
+        print(spec)
+        if findings:
+            print("Findings:", findings)
+        return True if args.yes else input("Approve this spec? [y/N] ").strip().lower() == "y"
     result = one_press(goal, args.dir, llm, approve)
     print(result)
     return 0 if result["status"] == "DONE_VERIFIED" else 1
