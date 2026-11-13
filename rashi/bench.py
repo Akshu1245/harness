@@ -7,8 +7,23 @@ as one JSON line. `runner` is injectable so tests use fakes: no network, no spen
 The live runner (one_press on a free model) is wired in rashi/__main__.py `bench`.
 """
 import json
+import subprocess
 import time
 from pathlib import Path
+
+
+def falsifiable(task, workdir):
+    """Seed the task into workdir and return the checks that still FAIL before any
+    work. A task whose checks all pass on the untouched seed proves nothing: DONE
+    would be granted for free (TestSuiteBench's lesson - valid checks can still be
+    weak). Guard checks that re-verify the seed (e.g. bench-guard's helpers test)
+    pass pre-work by design, so the requirement is: at least one check must fail."""
+    wd = Path(workdir)
+    wd.mkdir(parents=True, exist_ok=True)
+    for rel, content in task.get("seed", {}).items():
+        (wd / rel).write_text(content)
+    return [c for c in task["checks"]
+            if subprocess.run(c, shell=True, cwd=wd, capture_output=True, timeout=30).returncode != 0]
 
 
 def load_tasks(path):

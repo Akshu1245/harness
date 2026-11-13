@@ -31,11 +31,13 @@ decision or his hardware. Everything else is in motion under the existing grants
    socksio` is needed there before any OpenAI client can be constructed.
 4. **README quickstart that a stranger can run in 5 minutes.** Proves shippability;
    claims stay limited to what CI and MODELS.md show.
-4b. **User-pain-driven items from docs/PAIN_POINTS.md** (research passes 1 and 2,
+4b. **User-pain-driven items from docs/PAIN_POINTS.md** (research passes 1-3,
    2026-11-13): stall signal, token-usage events, the stale-instruction-file fix in
-   every role prompt, and the seeded guarded benchmark task (bench-guard) are done;
-   next is passing each parallel sibling's changed-file list into the merge review
-   (the ACM paper's 82% recovery move).
+   every role prompt, the seeded guarded benchmark task (bench-guard), and the
+   falsifiability gate (every benchmark task must have a check that fails before any
+   work) are done; next are a chained two-step benchmark task (the Multi-step SWE
+   shape, tiny) and passing each parallel sibling's changed-file list into the merge
+   review (the ACM paper's 82% recovery move).
 5. **Dogfood: use one_press on a small real feature in this repo.** Proves the loop
    on its own codebase; any crash found is fixed at the root (already happened once:
    the split-fallback bug).

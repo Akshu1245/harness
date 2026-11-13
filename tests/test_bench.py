@@ -52,3 +52,13 @@ def test_run_bench_appends_across_runs(tmp_path):
     bench.run_bench(t, lambda _: {"status": "DONE_VERIFIED"}, out)
     bench.run_bench(t, lambda _: {"status": "FAILED"}, out)
     assert len(out.read_text().splitlines()) == 2  # history is never overwritten
+
+
+def test_every_benchmark_task_is_falsifiable(tmp_path):
+    """TestSuiteBench (pass 3, pain 17): valid checks can still be weak. Every shipped
+    task must have at least one check that FAILS on the seeded-but-unbuilt workdir -
+    otherwise DONE could be granted without any work."""
+    tasks = bench.load_tasks("benchmarks/tasks.json")
+    for t in tasks:
+        failing = bench.falsifiable(t, tmp_path / t["id"])
+        assert failing, f"{t['id']}: every check passes before any work - the task proves nothing"

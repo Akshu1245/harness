@@ -197,3 +197,123 @@ Same ground rules: every claim links its source; observed vs inferred is labeled
 | Reviewer burden (11) | Every DONE is check-verified; events are the evidence | A bench_summary report over results.jsonl so a human reviews numbers, not prose (dogfood target) |
 | Agent attack surface (12) | Pin+hash installs, content-as-data rule, key scan before push, paid endpoints refused | Nothing new now; revisit when MCP plugins get real use |
 | Forgetting/handoffs (13) | PROGRESS.json + events.jsonl append-only state | Nothing new now |
+
+---
+
+# Third pass, 2026-11-13 (deeper: long-horizon reliability, termination, verification strength, sandbox boundaries, approval UX, harness-vs-model)
+
+## Ranked pains (pass 3)
+
+### 14. Agents solve early but stop late, and continuing can break the fix
+- Observed: arxiv 2611.14960 (Penn State; five models, two frameworks, three SWE-bench
+  datasets; every distinct intermediate patch tested offline): 38-82% of successful
+  runs already pass the benchmark tests on the FIRST source-code edit; a median of
+  35-60% of steps come after the first correct patch (mostly verification and
+  exploration); in 1-8% of cases the extra work overwrites the correct patch and the
+  run submits a broken one (https://arxiv.org/abs/2611.14960).
+- Inferred: stopping at the first externally-verified green is not lazy, it is the
+  measured optimum. A loop that keeps going after green is spending money and risk
+  for nothing.
+
+### 15. Errors enter early, the evidence is already in the trajectory, and nobody acts on it
+- Observed: arxiv 2611.13254 (Villanova; 95 failed multi-agent runs read in full):
+  faults enter early (median at 18% of the run); in 72% of failed runs the trajectory
+  already contained evidence against the error before the failure, and in 88% of
+  those no agent acted on it; independent reviewers reading the unused evidence
+  caught most episodes, and restoring state would have sufficed in 35/95. Also: 45%
+  of the Who&When corpus failures ended with a provider content-filter crash after
+  which the harness emitted a final answer no agent ever produced
+  (https://arxiv.org/abs/2611.13254).
+- Inferred: two controls matter - an append-only evidence trail an independent
+  reader can audit (our events.jsonl + fresh-context reviewer), and never letting the
+  harness invent a result the agent did not produce (our DONE comes only from check
+  exit codes; a crashed run is STOPPED_*, never DONE).
+
+### 16. Agents degrade when building on their own earlier code
+- Observed: arxiv 2611.07166 (Multi-step SWE; 69 tasks, each a chain of 5-15 dependent
+  steps on one codebase, each step graded by its own verifier): the strongest of nine
+  frontier models solves 18.5%; 38 of 69 tasks are solved by no model; a task counts
+  solved only if EVERY step passes (https://arxiv.org/abs/2611.07166).
+- Inferred: single-task benchmarks flatter agents. Chained evaluation - where step k
+  inherits the code step k-1 wrote - is where the field's real number lives.
+
+### 17. Agents can build software they cannot verify
+- Observed: arxiv 2610.13065 (TestSuiteBench, ETH Zurich; 165 applications, ~74
+  requirement-isolating mutants each): frontier agents writing test suites from a
+  specification kill under 60% of mutants (best 55%), while implementations generated
+  from the same specs pass 82-93% of reference tests; 88% of generated tests are
+  valid - the suites are just weak (https://arxiv.org/html/2610.13065v1).
+- Inferred: a DONE gate is only as strong as its checks. Model-written checks are the
+  weak link: they are usually valid but miss the input combinations that would catch
+  a wrong implementation. A check that cannot fail is not a check.
+
+### 18. Sandbox escapes happen AFTER the sandbox, through trusted consumers
+- Observed: CSA research note on Pillar Security's "Week of Sandbox Escapes"
+  (2026-07-22): seven disclosed issues across Cursor, Codex CLI, Gemini CLI and
+  Antigravity, and none broke the sandbox - the agent wrote files (a hook config, a
+  venv interpreter, git config with core.fsmonitor, a .vscode task) that an
+  unsandboxed component later executed with user privileges. Cursor CVE-2026-48124
+  (CVSS 8.5, fixed 3.0.0); Codex "GitPwned" allowlist trusted `git show` by name and
+  `git show --output=` wrote arbitrary files (fixed 0.95.0, bounty paid); the Docker
+  socket finding was declined by OpenAI and Google. Pillar: "if an agent gets to
+  write the future inputs of systems, it was never sandboxed in the first place."
+  None of the products generated an alert when an unsandboxed component consumed an
+  agent-written file
+  (https://labs.cloudsecurityalliance.org/research/csa-research-note-ai-coding-agent-sandbox-escapes-20260722-c/).
+- Inferred: watching the agent's process is not enough; watch what the agent WROTE.
+  Digest-pinning protected files (including configs, hooks, interpreter paths) and
+  alerting on any change is the control these products lacked.
+
+### 19. Approval prompts degrade into rubber stamps
+- Observed: tianpan.co (2026-05-17): after ~40 prompts a session the dialog is not
+  read; "the permission prompt has degraded into latency with a confirmation dialog."
+  Each extra prompt subtracts safety by spending a finite budget of genuine
+  approvals. Fix: never prompt on safe reversible reads, tier by external-effect x
+  reversibility, show consequences not commands, let trust decay per action class,
+  and measure approval latency - sub-second approvals are oversight collapse
+  (https://tianpan.co/blog/2026/05/17/permission-prompt-ux-bug-human-rubber-stamp).
+- Observed: arxiv 2611.10058 (NCSU; survey of 203 developers): 61% of developers who
+  carefully review generated code still approve at least one class of agent ACTION
+  without close review; asked what would earn more autonomy, over half wanted agents
+  that are bounded, observable, or reversible - not just more reliable
+  (https://arxiv.org/html/2611.10058v1).
+- Inferred: one_press's shape matches the research: ONE consequence-level approval at
+  the spec, then autonomous execution inside enforced bounds, then evidence.
+  Per-action prompting is an anti-pattern, not a safety feature.
+
+### 20. Rollback is a core workflow, and file state alone is not enough
+- Observed: re-gent.dev rollback guide: agents change code faster than humans review,
+  so rollback is routine, not an emergency; "Git can undo code, checkpoints restore
+  file state, but agent rollback needs one more thing" - the reasoning and intent
+  behind the change, or rollback is "guessing in reverse"
+  (https://www.re-gent.dev/blog/ai-coding-agent-rollback).
+- Inferred: our per-iteration log (what the agent was told, what it wrote, which
+  checks failed) IS the missing half: a rollback with the reasoning attached.
+
+### 21. The harness matters more than the model - and the handoff matters more than the router
+- Observed: irsi.ai research note (2026-10-07; 30 Exercism tasks x 3 harnesses x 3
+  models, matched token caps, 1,144 runs): the harness explains more of the score
+  difference than the model at every cap - 83% of between-cell differences at a 20k
+  token cap - and model rankings FLIP between harnesses (the top-rated model ranks
+  first under aider, last overall at 200k)
+  (https://irsi.ai/notes/harness/harness-note.pdf).
+- Observed: arxiv 2608.04804 (Scrouting; SWE-bench Pro, capped budget): a 7B scout
+  with a sandbox-verified handoff plus the cheapest fixer TIES the best frontier
+  model at about a fifth of the cost - and the ablation shows the handoff, not the
+  routing decision, carries the result (https://arxiv.org/abs/2608.04804).
+- Inferred: this project premise is now externally validated: verification,
+  evidence, and handoff quality beat model shopping. Invest in the handoff (what the
+  next step/agent is told), not router cleverness.
+
+## What pass 3 means for the harness (inferred)
+
+| Pain | Our answer today | Gap to build |
+|---|---|---|
+| Termination lag (14) | Loop stops at the first green check; model's "DONE" claims are ignored | Nothing new - the paper validates the design |
+| Evidence ignored (15) | events.jsonl append-only; fresh-context reviewer; crashed runs can never be DONE | Surface per-run "evidence ignored" moments: reviewer findings the builder never addressed (war room field) |
+| Degrading on own code (16) | bench tasks are single-step | Chained benchmark task: step 2 builds on step 1's output, graded per step (the Multi-step SWE shape, tiny) |
+| Weak self-verification (17) | Checks come from the spec, but the model writes them | Falsifiability gate: a benchmark check must FAIL on the untouched workdir before it counts (built this pass) |
+| Trust handoff (18) | Protected paths digest-pinned; tamper = FAILED | Nothing new now; when sandboxing lands, digest-pin configs/hooks, not just source |
+| Rubber stamps (19) | One approval at spec level; per-action prompts rejected by design | Document the approval-latency signal for the war room |
+| Rollback needs reasoning (20) | Per-iteration log records prompt + diff + check results | Nothing new now |
+| Handoff > router (21) | Split prompts carry task context | Sibling changed-file lists into merge review (still queued from pass 2) |
