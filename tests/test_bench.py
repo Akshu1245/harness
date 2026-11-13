@@ -62,3 +62,15 @@ def test_every_benchmark_task_is_falsifiable(tmp_path):
     for t in tasks:
         failing = bench.falsifiable(t, tmp_path / t["id"])
         assert failing, f"{t['id']}: every check passes before any work - the task proves nothing"
+
+
+def test_every_mutant_is_killed_by_the_checks(tmp_path):
+    """TestSuiteBench in miniature (pass 3 pain 17): every shipped task carries
+    wrong-but-plausible mutants, and the task's checks must kill every one of them.
+    A surviving mutant proves the suite can be gamed - it gets strengthened, not excused."""
+    tasks = bench.load_tasks("benchmarks/tasks.json")
+    for t in tasks:
+        assert t.get("mutants"), f"{t['id']}: no mutants - check strength is unproven"
+        for i, m in enumerate(t["mutants"]):
+            assert bench.killed(t, m, tmp_path / f"{t['id']}-m{i}"), \
+                f"{t['id']} mutant {i} survived: the checks accept wrong work"

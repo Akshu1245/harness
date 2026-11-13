@@ -54,3 +54,6 @@ where their output is the product (e.g. spec drafting), with a longer timeout.
 | llama-3-3-70b-instruct:free | yes | no | 131,072 |
 | muse-glimmer-30b:free | yes | yes | 131,072 |
 | glm-4-6v-flash:free | yes | no | 128,000 |
+
+
+Honesty note (2026-11-13, later): the benchmark checks were STRENGTHENED after the first live pass - mutation testing (each task now ships wrong-but-plausible mutants its checks must kill) exposed four weak checks (single-input sum, single-name greet, self-attesting test file, hardcoded bump2). The 3/3 numbers above predate the stronger suite; the next live pass re-measures against it.

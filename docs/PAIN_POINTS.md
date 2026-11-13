@@ -312,7 +312,7 @@ Same ground rules: every claim links its source; observed vs inferred is labeled
 | Termination lag (14) | Loop stops at the first green check; model's "DONE" claims are ignored | Nothing new - the paper validates the design |
 | Evidence ignored (15) | events.jsonl append-only; fresh-context reviewer; crashed runs can never be DONE | Surface per-run "evidence ignored" moments: reviewer findings the builder never addressed (war room field) |
 | Degrading on own code (16) | bench tasks are single-step | Chained benchmark task: step 2 builds on step 1's output, graded per step (the Multi-step SWE shape, tiny) |
-| Weak self-verification (17) | Checks come from the spec, but the model writes them | Falsifiability gate: a benchmark check must FAIL on the untouched workdir before it counts (built this pass) |
+| Weak self-verification (17) | Checks come from the spec, but the model writes them | Falsifiability gate (built pass 3) + mutation-kill gate over every shipped task (built pass 5) |
 | Trust handoff (18) | Protected paths digest-pinned; tamper = FAILED | Nothing new now; when sandboxing lands, digest-pin configs/hooks, not just source |
 | Rubber stamps (19) | One approval at spec level; per-action prompts rejected by design | Document the approval-latency signal for the war room |
 | Rollback needs reasoning (20) | Per-iteration log records prompt + diff + check results | Nothing new now |
@@ -403,9 +403,9 @@ represent them.
 | Pain | Our answer today | Gap to build |
 |---|---|---|
 | Confident misreporting (22) | Exit codes decide DONE; digests record what actually changed | Nothing new - pass-1 answer holds |
-| Weak AI tests (23) | Falsifiability gate (built pass 3) | Mutation testing of checks stays on the roadmap |
+| Weak AI tests (23) | Falsifiability gate + per-task mutants the checks must kill (built pass 3/5) | Writing the mutants exposed and fixed 4 weak checks in our own suite |
 | Security mistakes (24) | Key scan on the repo itself | security.py smells() + bench security_scan tasks refuse DONE on dangerous shapes (built this pass) |
-| Visual blindness (25) | Headless-Chrome verification used by US on our own UI work | screenshot-as-check primitive for UI tasks |
+| Visual blindness (25) | Headless-Chrome verification used by US on our own UI work | shotcheck.capture(): screenshot-as-check primitive (built this pass); refuses to pass with no browser |
 | Silent hangs (26) | Timeouts everywhere; STALLED badge; hung-CLI regression test (built this pass) | Nothing new now |
 | Walls of text (27) | Spec approval is one short structured document | Keep specs short; measure, not built |
 | Expert assumptions (28) | Plain-language docs rule | Not core-loop work |

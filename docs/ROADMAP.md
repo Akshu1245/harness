@@ -35,10 +35,13 @@ decision or his hardware. Everything else is in motion under the existing grants
    2026-11-13): stall signal, token-usage events, the stale-instruction-file fix in
    every role prompt, the seeded guarded benchmark task (bench-guard), and the
    falsifiability gate (every benchmark task must have a check that fails before any
-   work), and the chained benchmark task (bench-chain: step 2 builds on step 1's code,
-   graded per step, a failed step ends the chain) are done; next is passing each
-   parallel sibling's changed-file list into the merge review (the ACM paper's 82%
-   recovery move).
+   work), the chained benchmark task (bench-chain: step 2 builds on step 1's code,
+   graded per step, a failed step ends the chain), sibling changed-file context at
+   merge, the security-smell scan (security_scan tasks refuse DONE on dangerous
+   output), screenshot-as-check (shotcheck; honest failure with no browser), and
+   mutation testing of checks (every task ships mutants; writing them exposed and
+   fixed four weak checks) are done. Next: re-run the live benchmark against the
+   strengthened suite after the Kenari daily reset, then the dogfood one_press run.
 5. **Dogfood: use one_press on a small real feature in this repo.** Proves the loop
    on its own codebase; any crash found is fixed at the root (already happened once:
    the split-fallback bug).

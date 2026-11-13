@@ -12,6 +12,23 @@ import time
 from pathlib import Path
 
 
+def killed(task, mutant, workdir):
+    """Write a mutant (a wrong-but-plausible solution) into the seeded workdir and
+    return True when at least one check FAILS on it. TestSuiteBench's mutation score,
+    shrunk to bench size: a check suite that accepts the mutant is too weak to gate
+    DONE (PAIN_POINTS pain 17/23). Mutants live in the task as {path, content}."""
+    wd = Path(workdir)
+    wd.mkdir(parents=True, exist_ok=True)
+    for rel, content in task.get("seed", {}).items():
+        (wd / rel).write_text(content)
+    for rel, content in mutant["files"].items():
+        (wd / rel).write_text(content)
+    steps = task.get("steps") or [{"checks": task.get("checks", [])}]
+    checks = [c for s in steps for c in s["checks"]]
+    return any(subprocess.run(c, shell=True, cwd=wd, capture_output=True, timeout=30).returncode != 0
+               for c in checks)
+
+
 def falsifiable(task, workdir):
     """Seed the task into workdir and return the checks that still FAIL before any
     work. A task whose checks all pass on the untouched seed proves nothing: DONE
@@ -37,6 +54,8 @@ def load_tasks(path):
             f"{t['id']}: each step needs goal and checks"
         assert isinstance(t.get("seed", {}), dict), f"{t['id']}: seed must be {{path: content}}"
         assert isinstance(t.get("protected", []), list), f"{t['id']}: protected must be a list"
+        assert all(isinstance(m.get("files"), dict) for m in t.get("mutants", [])), \
+            f"{t['id']}: each mutant needs {{files: {{path: content}}}}"
     return tasks
 
 
