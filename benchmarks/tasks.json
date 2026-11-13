@@ -1,0 +1,17 @@
+[
+  {
+    "id": "bench-fib",
+    "goal": "Create fib.py with fib(n) returning the n-th Fibonacci number (fib(0)=0, fib(1)=1), and test_fib.py with pytest tests for fib(0), fib(1), fib(10).",
+    "checks": ["python -m pytest -q test_fib.py"]
+  },
+  {
+    "id": "bench-cli",
+    "goal": "Create greet.py: a CLI taking --name (default 'world') that prints exactly 'hello <name>'.",
+    "checks": ["python greet.py --name harness | grep -qx 'hello harness'", "python greet.py | grep -qx 'hello world'"]
+  },
+  {
+    "id": "bench-json",
+    "goal": "Create summarize.py that reads a JSON list of numbers from stdin and prints their sum as a plain number.",
+    "checks": ["echo '[1, 2, 3.5]' | python summarize.py | grep -qx '6.5'"]
+  }
+]
