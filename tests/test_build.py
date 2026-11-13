@@ -33,7 +33,7 @@ def test_creation_check_on_missing_file_is_allowed(tmp_path):
 
 def test_split_fallback_when_planner_json_unparsable():
     tasks, how = build.split_tasks(lambda s, u: "no json", "spec", [{"id": "c1", "cmd": "true"}])
-    assert how == "fallback_single_task" and tasks[0]["checks"] == ["true"]
+    assert how == "fallback_single_task" and tasks[0]["checks"] == [{"id": "t1-c1", "cmd": "true"}]
 
 
 def test_one_press_end_to_end(tmp_path):

@@ -68,6 +68,13 @@ def test_no_ready_agent_assigns_nothing(tmp_path):
     assert orchestrate.assign(tasks, {}) == {}
 
 
+def test_plain_callable_agent_accepted(tmp_path):
+    def agent(goal, feedback, wd):
+        pathlib.Path(wd, "out.txt").write_text("x")
+    tasks = [{"id": "t1", "goal": "g", "checks": [{"id": "C1", "cmd": "test -f out.txt"}]}]
+    assert orchestrate.run_tasks(tasks, {"fn": agent}, tmp_path / "run")["t1"] == "DONE_VERIFIED"
+
+
 def test_cli_agent_template_and_nonzero_raise():
     a = orchestrate.CliAgent.for_cli("codex")
     assert a.argv[:2] == ["codex", "exec"]

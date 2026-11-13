@@ -60,8 +60,8 @@ def assign(tasks, agents):
 
 
 def run_tasks(tasks, agents, base_dir, max_iters=6, timeout=600):
-    """tasks: [{id, goal, checks, protected?}]. agents: {name: argv or CliAgent}.
-    Each task gets its own subdir under base_dir; returns {task_id: status}."""
+    """tasks: [{id, goal, checks, protected?}]. agents: {name: argv list, CliAgent, or any
+    loop-compatible callable agent(goal, feedback, workdir) - e.g. llm_agent.make_agent(...)}."""
     base = Path(base_dir)
     results = {}
     plan = assign(tasks, agents)
@@ -71,7 +71,7 @@ def run_tasks(tasks, agents, base_dir, max_iters=6, timeout=600):
             results[t["id"]] = "NO_AGENT_AVAILABLE"
             continue
         agent = agents[name]
-        if not isinstance(agent, CliAgent):
+        if not isinstance(agent, CliAgent) and not callable(agent):
             agent = CliAgent(agent, timeout=timeout)
         wd = base / t["id"]
         wd.mkdir(parents=True, exist_ok=True)

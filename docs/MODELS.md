@@ -9,6 +9,12 @@ section with: `python -m rashi.model_table /path/to/fresh/kenari-models.json`.
 |---|---|---|---|---|
 | ExpLabs | gpt-6-luna | slugify utility | 2026-11-12 | ~2s/call |
 | Kenari | glm-4-7-flash:free | write add() function | 2026-11-13 | 74.7s, 1 iter |
+| Kenari | glm-4-7-flash:free | one-press build flow (spec gate -> task split -> distribute -> loop), add() in math_utils.py | 2026-11-13 | 1 iter |
+
+Lesson from the one-press live run: the flash model drafted a clean spec with three valid checks
+and wrote correct code first try, but its JSON-only replies (goldfish findings, task split) came
+back unparsable once each; both fallbacks (high-finding record, single-task split) absorbed it.
+JSON-strictness retry is the known upgrade.
 
 Lesson from live runs: prefer flash-class (non-reasoning) models for loop iterations; reasoning
 models blew the 90s client timeout against Kenari's 5 rpm free tier. Use reasoning models only
