@@ -27,6 +27,12 @@ def digest(workdir, paths):
     return h.hexdigest()
 
 
+def emit(workdir, kind, **fields):
+    """Append one event to events.jsonl: the real event log the war room renders."""
+    with open(Path(workdir) / "events.jsonl", "a") as f:
+        f.write(json.dumps({"ts": time.time(), "kind": kind, **fields}) + "\n")
+
+
 def snapshot(workdir):
     """{relative path: sha256} for every file, used to see exactly what an agent touched."""
     out = {}
@@ -61,9 +67,11 @@ def run_loop(spec, agent, state_path=None):
         results = [(c["id"],) + run_cmd(c["cmd"], wd) for c in spec["checks"]]
         failed = [r for r in results if r[1] != 0]
         log.append({"iter": i, "failed": [r[0] for r in failed], "agent_error": err})
+        emit(wd, "iter", iter=i, failed=[r[0] for r in failed], agent_error=err)
         Path(state_path).write_text(json.dumps({"status": "RUNNING", "goal": spec["goal"], "log": log}, indent=1))
         if not failed:
             status = "DONE_VERIFIED"; break
         feedback = "\n".join(f"{r[0]} exit {r[1]}: {r[2]}" for r in failed)
     Path(state_path).write_text(json.dumps({"status": status, "goal": spec["goal"], "log": log}, indent=1))
+    emit(wd, "status", status=status, iters=len(log))
     return status, log
