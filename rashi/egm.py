@@ -64,10 +64,13 @@ def goldfish_review(llm, spec_text, workdir):
 
 
 def drift_report(spec_text, workdir):
-    """Deterministic: referenced paths missing from the code tree."""
-    missing = [r for r in dict.fromkeys(PATH_RE.findall(spec_text))
-               if not (Path(workdir) / r).exists() and "/" in r or r.endswith(".py") and not (Path(workdir) / r).exists()]
-    return {"missing_paths": sorted(set(missing)), "drifted": bool(missing)}
+    """Deterministic: referenced paths missing from the code tree. Same file-token rule as
+    invalid_checks: a slash, or a .py/.sh/.js suffix, marks a token as a path (so `3.11` is not one)."""
+    def looks_like_path(tok):
+        return "/" in tok or tok.endswith((".py", ".sh", ".js"))
+    missing = sorted({r for r in dict.fromkeys(PATH_RE.findall(spec_text))
+                      if looks_like_path(r) and not (Path(workdir) / r).exists()})
+    return {"missing_paths": missing, "drifted": bool(missing)}
 
 
 def spec_gate(llm, goal, workdir, context="", max_rounds=2):

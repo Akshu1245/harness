@@ -14,6 +14,8 @@ def run_cmd(cmd, cwd, timeout=300):
         return p.returncode, (p.stdout + p.stderr)[-2000:]
     except subprocess.TimeoutExpired:
         return 124, "timeout"
+    except OSError as ex:  # missing workdir, unspawnable shell: a failed check, not a loop crash
+        return 2, f"spawn error: {ex}"
 
 
 def digest(workdir, paths):
@@ -50,9 +52,13 @@ def changed_since(before, workdir):
 
 def run_loop(spec, agent, state_path=None):
     wd = spec.get("workdir", ".")
+    Path(wd).mkdir(parents=True, exist_ok=True)  # the loop owns its workdir; never crash on a missing one
     state_path = state_path or os.path.join(wd, "PROGRESS.json")
     protected = spec.get("protected", [])
     base = digest(wd, protected)
+    absent = [p for p in protected if not (Path(wd) / p).exists()]
+    if absent:  # an absent protected path silently protects nothing; say so in the event log
+        emit(wd, "warn", what="protected paths absent", paths=absent)
     start, feedback, log, status = time.time(), "", [], "STOPPED_MAX_ITERS"
     for i in range(1, spec.get("max_iters", 6) + 1):
         if time.time() - start > spec.get("max_seconds", 900):
@@ -66,6 +72,10 @@ def run_loop(spec, agent, state_path=None):
             status = "FAILED_TAMPERED_PROTECTED_FILES"; break
         results = [(c["id"],) + run_cmd(c["cmd"], wd) for c in spec["checks"]]
         failed = [r for r in results if r[1] != 0]
+        if digest(wd, protected) != base:  # a check command itself tampered with protected files
+            log.append({"iter": i, "failed": [r[0] for r in failed], "agent_error": err, "tampered_by": "checks"})
+            emit(wd, "iter", iter=i, failed=[r[0] for r in failed], agent_error=err, tampered_by="checks")
+            status = "FAILED_TAMPERED_PROTECTED_FILES"; break
         log.append({"iter": i, "failed": [r[0] for r in failed], "agent_error": err})
         emit(wd, "iter", iter=i, failed=[r[0] for r in failed], agent_error=err)
         Path(state_path).write_text(json.dumps({"status": "RUNNING", "goal": spec["goal"], "log": log}, indent=1))

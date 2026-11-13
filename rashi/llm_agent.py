@@ -74,7 +74,12 @@ def make_agent(provider, model, api_key, protected=(), max_tokens=1500, client=N
         SpendGate(Path(workdir) / ".spend.json", calls_per_day).check(provider)
         ctx = ""
         for fp in sorted(Path(workdir).glob("*.py")):
-            ctx += f"\n--- {fp.name} ---\n{fp.read_text()[:3000]}"
+            if len(ctx) >= 24000:  # total cap: truncation mid-file produces broken edits
+                break
+            try:
+                ctx += f"\n--- {fp.name} ---\n{fp.read_text(errors='replace')[:3000]}"
+            except OSError:
+                continue
         prompt = f"Goal: {goal}\nCurrent files:{ctx}\n"
         if feedback:
             prompt += f"\nFailing checks output:\n{feedback}\n"
