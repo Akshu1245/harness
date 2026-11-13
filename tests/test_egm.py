@@ -63,3 +63,17 @@ def test_goldfish_retries_once_on_unparsable(tmp_path):
         return "lol" if calls["n"] == 1 else '{"findings":[{"severity":"low","issue":"ok"}]}'
     f = egm.goldfish_review(llm, "spec", str(tmp_path))
     assert f == [{"severity": "low", "issue": "ok"}] and calls["n"] == 2
+
+
+def test_draft_spec_retries_an_empty_reply():
+    """Dogfood 2026-11-13: Kenari's flash model answered a spec prompt with an empty
+    message; the draft must ask once more instead of flowing an empty spec downstream."""
+    calls = []
+
+    def llm(system, user):
+        calls.append(user)
+        return "" if len(calls) == 1 else "Spec\n- `test -f x.py`"
+
+    from rashi.egm import draft_spec
+    assert draft_spec(llm, "make x") == "Spec\n- `test -f x.py`"
+    assert len(calls) == 2 and "previous reply was empty" in calls[1]

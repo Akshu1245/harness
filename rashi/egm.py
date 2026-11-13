@@ -20,7 +20,11 @@ CHECK_RE = re.compile(r"^\s*[-*]\s*`([^`]+)`\s*$", re.M)
 
 
 def draft_spec(llm, goal, context=""):
-    return llm(ELEPHANT_SYS, f"Project context:\n{context[:6000]}\n\nGoal: {goal}")
+    spec = llm(ELEPHANT_SYS, f"Project context:\n{context[:6000]}\n\nGoal: {goal}")
+    if not spec.strip():  # free-tier models sometimes return an empty message; ask once more
+        spec = llm(ELEPHANT_SYS, f"Project context:\n{context[:6000]}\n\nGoal: {goal}\n\n"
+                                 "Your previous reply was empty. Write the spec now.")
+    return spec
 
 
 def referenced_files(spec_text, workdir):
