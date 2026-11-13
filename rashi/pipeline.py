@@ -1,7 +1,8 @@
 """End to end: spec (elephant+goldfish) -> human approval -> verified loop -> fresh review of the result.
 approve(spec, findings) -> bool is the human gate. Review findings never change the DONE status."""
+import re
 from . import egm
-from .loop import run_loop
+from .loop import changed_since, run_loop, snapshot
 from .router import route
 
 
@@ -12,7 +13,19 @@ def run_pipeline(goal, workdir, llm, agent, approve, protected=(), laya=None, lo
         return {"status": "SPEC_NOT_APPROVED", "role": role, "findings": findings}
     if not checks:
         return {"status": "NO_CHECKS_IN_SPEC", "role": role, "findings": findings}
+    before = snapshot(workdir)
     status, log = run_loop({"goal": goal, "checks": checks, "protected": list(protected),
                             "workdir": workdir, "max_iters": max_iters}, agent)
+    # Deterministic scope check: files the agent touched that the spec never named. Advisory,
+    # like review findings; exit codes still decide DONE. PROGRESS.json is the loop's own state.
+    # shortcut: declared scope = every backticked path plus every file token in check commands,
+    # upgrade: parse only the Files section when specs get large enough to make this noisy.
+    declared = set(egm.PATH_RE.findall(spec)) | {"PROGRESS.json"}
+    for c in checks:
+        declared.update(re.findall(r"[\w./-]+\.\w+", c["cmd"]))
+    touched = changed_since(before, workdir)
+    scope = {"out_of_scope": sorted(p for p in touched["changed"] + touched["removed"] if p not in declared),
+             "touched": len(touched["changed"]), "removed": touched["removed"]}
     review = egm.goldfish_review(llm, spec, workdir) if status == "DONE_VERIFIED" else []
-    return {"status": status, "role": role, "spec_findings": findings, "review": review, "iters": len(log)}
+    return {"status": status, "role": role, "spec_findings": findings, "review": review,
+            "scope": scope, "iters": len(log)}

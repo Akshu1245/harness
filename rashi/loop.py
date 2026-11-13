@@ -27,6 +27,21 @@ def digest(workdir, paths):
     return h.hexdigest()
 
 
+def snapshot(workdir):
+    """{relative path: sha256} for every file, used to see exactly what an agent touched."""
+    out = {}
+    for fp in sorted(Path(workdir).rglob("*")):
+        if fp.is_file() and "__pycache__" not in fp.parts and ".git" not in fp.parts:
+            out[str(fp.relative_to(workdir))] = hashlib.sha256(fp.read_bytes()).hexdigest()
+    return out
+
+
+def changed_since(before, workdir):
+    after = snapshot(workdir)
+    return {"changed": sorted(p for p in after if before.get(p) != after[p]),
+            "removed": sorted(p for p in before if p not in after)}
+
+
 def run_loop(spec, agent, state_path=None):
     wd = spec.get("workdir", ".")
     state_path = state_path or os.path.join(wd, "PROGRESS.json")
