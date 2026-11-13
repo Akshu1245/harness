@@ -90,9 +90,9 @@ def main(argv=None):
         def runner(t):
             wd = Path(args.dir) / t["id"]
             checks = [{"id": f"{t['id']}-c{i+1}", "cmd": c} for i, c in enumerate(t["checks"])]
-            status, _ = run_loop({"goal": t["goal"], "workdir": str(wd), "checks": checks,
-                                  "max_iters": args.max_iters}, agent)
-            return {"status": status}
+            status, log = run_loop({"goal": t["goal"], "workdir": str(wd), "checks": checks,
+                                    "max_iters": args.max_iters}, agent)
+            return {"status": status, "iterations": len(log)}
 
         summary = benchmod.run_bench(tasks, runner, args.out)
         print(json.dumps({"provider": provider, "model": model,

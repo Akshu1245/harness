@@ -1,8 +1,8 @@
 [
   {
     "id": "bench-fib",
-    "goal": "Create fib.py with fib(n) returning the n-th Fibonacci number (fib(0)=0, fib(1)=1), and test_fib.py with pytest tests for fib(0), fib(1), fib(10).",
-    "checks": ["python -m pytest -q test_fib.py"]
+    "goal": "Create fib.py with fib(n) returning the n-th Fibonacci number (fib(0)=0, fib(1)=1), and test_fib.py using plain asserts (no pytest) that checks fib(0), fib(1), fib(10) and prints OK.",
+    "checks": ["python test_fib.py | grep -qx 'OK'", "python -c \"from fib import fib; assert fib(10) == 55\""]
   },
   {
     "id": "bench-cli",

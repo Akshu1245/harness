@@ -10,6 +10,12 @@ section with: `python -m rashi.model_table /path/to/fresh/kenari-models.json`.
 | ExpLabs | gpt-6-luna | slugify utility | 2026-11-12 | ~2s/call |
 | Kenari | glm-4-7-flash:free | write add() function | 2026-11-13 | 74.7s, 1 iter |
 | Kenari | glm-4-7-flash:free | one-press build flow (spec gate -> task split -> distribute -> loop), add() in math_utils.py | 2026-11-13 | 1 iter |
+| Kenari | glm-4-7-flash:free | benchmark pass: 3 fixed tasks (fib module, CLI tool, stdin-JSON tool), `python -m rashi bench` | 2026-11-13 | 3/3 DONE_VERIFIED, all iter 1, 5-14s each |
+
+Benchmark honesty note: bench-fib first shipped with a pytest-dependent check and failed
+STOPPED_MAX_ITERS even though the model wrote correct code - the loop ran `python`, which has
+no pytest in a bare environment. The loop was right to refuse DONE; the check was wrong.
+Checks in benchmarks/tasks.json now use only stdlib assumptions. Raw rows: benchmarks/results.jsonl.
 
 Lesson from the one-press live run: the flash model drafted a clean spec with three valid checks
 and wrote correct code first try, but its JSON-only replies (goldfish findings, task split) came
