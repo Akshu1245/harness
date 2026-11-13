@@ -90,7 +90,8 @@ def run_tasks(tasks, agents, base_dir, max_iters=6, timeout=600):
         status, _ = run_loop(spec, agent)
         results[t["id"]] = status
         changed = changed_since(before, wd)["changed"]
-        changed = [c for c in changed if c not in ("PROGRESS.json", "events.jsonl")]
+        changed = [c for c in changed if c not in ("PROGRESS.json", "events.jsonl", ".replay.jsonl")
+                   and not c.startswith(".spill/")]
         if changed:
             sibling_changes[t["id"]] = changed
     return results

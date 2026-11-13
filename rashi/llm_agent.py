@@ -1,5 +1,5 @@
 """Edit step backed by an OpenAI-compatible gateway. Free-tier only by design."""
-import json, os, re, tempfile, time
+import hashlib, json, os, re, tempfile, time
 from pathlib import Path
 from openai import OpenAI
 
@@ -93,20 +93,46 @@ def make_agent(provider, model, api_key, protected=(), max_tokens=1500, client=N
                 ctx += f"\n--- {fp.name} ---\n{fp.read_text(errors='replace')[:3000]}"
             except OSError:
                 continue
+        read_digests = {}
+        for fp in sorted(Path(workdir).glob("*.py")):
+            try:
+                read_digests[fp.name] = hashlib.sha256(fp.read_bytes()).hexdigest()
+            except OSError:
+                continue
         prompt = f"Goal: {goal}\nCurrent files:{ctx}\n"
         if feedback:
             prompt += f"\nFailing checks output:\n{feedback}\n"
-        r = client.chat.completions.create(model=model, max_tokens=max_tokens,
-            messages=[{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}])
+        delay = 5  # 429 backoff (pattern from dsh llm-retry): free tiers rate-limit per minute
+        for attempt in range(3):
+            try:
+                r = client.chat.completions.create(model=model, max_tokens=max_tokens,
+                    messages=[{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}])
+                break
+            except Exception as ex:
+                limited = "ratelimit" in type(ex).__name__.lower() or getattr(ex, "status_code", None) == 429
+                if not limited or attempt == 2:
+                    raise
+                emit(workdir, "warn", what="rate limited, backing off", attempt=attempt + 1, wait_s=delay)
+                time.sleep(delay)
+                delay *= 2
         u = getattr(r, "usage", None)  # cost is data: every call's tokens land in events.jsonl
         if u is not None:
             emit(workdir, "llm_call", provider=provider, model=model,
                  prompt_tokens=getattr(u, "prompt_tokens", None),
                  completion_tokens=getattr(u, "completion_tokens", None))
         text = r.choices[0].message.content or ""
+        if os.environ.get("RASHI_RECORD") == "1":  # keyless replay fixtures (dsh llm-replay pattern)
+            with open(Path(workdir) / ".replay.jsonl", "a") as f:
+                f.write(json.dumps({"goal": goal, "feedback": feedback, "response": text}) + "\n")
         files = parse_files(text)
         if not files:
             raise ValueError("model returned no parsable FILE blocks")
+        # Read-before-edit (pattern from dsh fs-observation-policy): refuse to overwrite a file
+        # that changed since the model was shown it - re-read instead of clobbering.
         for rel, content in files:
+            cur = Path(workdir) / rel
+            if rel in read_digests and cur.exists() and \
+                    hashlib.sha256(cur.read_bytes()).hexdigest() != read_digests[rel]:
+                raise ValueError(f"{rel} changed since the model read it; re-read before editing")
             safe_write(workdir, rel, content, protected)
     return agent

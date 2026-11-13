@@ -73,3 +73,30 @@ def test_agent_records_token_usage_event(tmp_path):
     call = [r for r in rows if r["kind"] == "llm_call"]
     assert call and call[0]["prompt_tokens"] == 11 and call[0]["completion_tokens"] == 7
     assert call[0]["provider"] == "apinex" and call[0]["model"] == "free/x"
+
+
+def test_no_progress_guard_emits_advisory_warning(tmp_path):
+    # dsh repeat-tool-reminder pattern: same failures + no file changes = looping, not working
+    spec = {"goal": "g", "workdir": str(tmp_path), "max_iters": 3,
+            "checks": [{"id": "C1", "cmd": "false"}]}
+    status, _ = run_loop(spec, lambda g, f, w: None)
+    assert status == "STOPPED_MAX_ITERS"
+    warns = [json.loads(l) for l in (tmp_path / "events.jsonl").read_text().splitlines()
+             if '"kind": "warn"' in l]
+    assert any("no progress" in w.get("what", "") for w in warns)
+
+
+def test_per_check_timeout_from_spec(tmp_path):
+    spec = {"goal": "g", "workdir": str(tmp_path), "max_iters": 1, "check_timeout": 1,
+            "checks": [{"id": "C1", "cmd": "sleep 5"}]}
+    status, log = run_loop(spec, lambda g, f, w: None)
+    assert status == "STOPPED_MAX_ITERS"
+    assert log[0]["failed"] == ["C1"]
+
+
+def test_big_check_output_spills_to_a_file(tmp_path):
+    spec = {"goal": "g", "workdir": str(tmp_path), "max_iters": 1,
+            "checks": [{"id": "C1", "cmd": "python3 -c \"print('x' * 9000)\"; false"}]}
+    status, log = run_loop(spec, lambda g, f, w: None)
+    spilled = list((tmp_path / ".spill").glob("*.log"))
+    assert spilled and len(spilled[0].read_text()) == 9001
