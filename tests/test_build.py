@@ -4,6 +4,7 @@ import stat
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+import json
 import pytest
 
 from rashi import build, egm
@@ -67,3 +68,15 @@ def test_split_retries_once_on_unparsable_then_succeeds():
         return "prose" if calls["n"] == 1 else '{"tasks":[{"id":"a","goal":"g","checks":["true"]}]}'
     tasks, how = build.split_tasks(llm, "spec", [{"id": "c1", "cmd": "true"}])
     assert how == "split" and calls["n"] == 2 and tasks[0]["id"] == "a"
+
+
+def test_split_tasks_preserves_protected_paths():
+    """End-to-end soak found it: split_tasks silently dropped a planner task's protected
+    list, so one_press would have run the loop with nothing protected. Pass it through."""
+    def llm(system, user):
+        return json.dumps({"tasks": [{"id": "t1", "goal": "g",
+                                      "checks": ["python3 x.py"],
+                                      "protected": ["helpers.py"]}]})
+    tasks, how = build.split_tasks(llm, "spec", [])
+    assert how == "split"
+    assert tasks[0]["protected"] == ["helpers.py"]

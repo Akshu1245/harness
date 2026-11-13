@@ -46,7 +46,9 @@ def split_tasks(llm, spec_text, fallback_checks):
         return [{"id": "t1", "goal": spec_text[:400],
                  "checks": [{"id": f"t1-c{i+1}", "cmd": c["cmd"]} for i, c in enumerate(fallback_checks)]}], "fallback_single_task"
     return [{"id": str(t["id"]), "goal": t["goal"],
-             "checks": [{"id": f"{t['id']}-c{i+1}", "cmd": c} for i, c in enumerate(t["checks"])]}
+             "checks": [{"id": f"{t['id']}-c{i+1}", "cmd": c} for i, c in enumerate(t["checks"])],
+             **({"protected": [str(p) for p in t["protected"]]}
+                if isinstance(t.get("protected"), list) else {})}
             for t in tasks], "split"
 
 
