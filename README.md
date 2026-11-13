@@ -14,11 +14,15 @@ Experimental multi-model coding harness. Status: **early prototype**. This READM
 ## Not built yet (roadmap)
 Sandboxed code execution, repo map, rollback per step, multi-round model debate with voting, live war-room data, DeepSeek Harness plugin front end, Android app, voice, research agent, memory. Earlier drafts of this README claimed Redis checkpoints, Docker deployment, "20+ frontier models" and self-healing loops: those did not exist and were removed.
 
-## Run the tests
+## Run it
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest -q tests
+python -m pytest -q tests        # the test suite
+python -m rashi fleet            # which agent CLIs are installed and ready
+python -m rashi build "build X" workdir   # one press: spec -> approve -> distribute -> verify
+python -m rashi warroom workdir  # live event stream UI on http://127.0.0.1:8765
 ```
+`build` needs one free provider key in the environment (KENARI_API_KEY first) for spec drafting; the coding is done by the CLI agents `fleet` found ready.
 
 ## Keys
 Copy `.env.example` to `.env` and fill it. Never commit keys; `tests/test_phase0.py` fails if a known key pattern appears in the tree.
