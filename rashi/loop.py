@@ -12,11 +12,16 @@ import hashlib, json, os, subprocess, time
 from pathlib import Path
 
 
-def run_cmd(cmd, cwd, timeout=300, spill_dir=None):
+def run_cmd(cmd, cwd, timeout=300, spill_dir=None, sandbox_argv=None):
+    """sandbox_argv: a bwrap prefix (rashi.sandbox.wrap_argv) to run the check inside."""
+    if sandbox_argv:
+        cmd = sandbox_argv + ["sh", "-c", cmd]  # argv form, no extra shell parsing
     """Spill (pattern from dsh spill-policy): output over the cap lands in a private file and the
     check result keeps head+tail plus the locator, instead of silently amputating the middle."""
     try:
-        p = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout, cwd=cwd)
+        argv = cmd if isinstance(cmd, list) else None
+        p = subprocess.run(argv or cmd, shell=argv is None, capture_output=True, text=True,
+                           timeout=timeout, cwd=cwd)
         out = p.stdout + p.stderr
         if len(out) > 2000 and spill_dir is not None:
             spill_dir = Path(spill_dir)
@@ -145,6 +150,14 @@ def run_loop(spec, agent, state_path=None):
                     emit(wd, "resumed", iters_done=len(log))
         except (ValueError, OSError):
             pass  # a corrupt state file starts a fresh run, never a crash
+    from . import sandbox as _sandbox
+    use_sandbox = _sandbox.requested(spec)
+    sandbox_argv = None
+    if use_sandbox:
+        if _sandbox.available():
+            sandbox_argv = _sandbox.wrap_argv(wd, net=bool(spec.get("sandbox_net")))
+        else:
+            emit(wd, "warn", what="sandbox requested but bwrap not available; checks run unsandboxed")
     protected = spec.get("protected", [])
     base = digest(wd, protected)
     absent = [p for p in protected if not (Path(wd) / p).exists()]
@@ -155,7 +168,7 @@ def run_loop(spec, agent, state_path=None):
     # result BEFORE each agent step, so the first step needs a baseline to be judged against.
     # On a resumed run the baseline is just re-measured on the current tree.
     prev_failed = [(c["id"],) + run_cmd(c["cmd"], wd, timeout=spec.get("check_timeout", 300),
-                                        spill_dir=Path(wd) / ".spill")
+                                        spill_dir=Path(wd) / ".spill", sandbox_argv=sandbox_argv)
                    for c in spec["checks"]]
     prev_failed = [r for r in prev_failed if r[1] != 0]
     if digest(wd, protected) != base:  # the baseline itself ran a tampering check: fail closed
@@ -180,7 +193,7 @@ def run_loop(spec, agent, state_path=None):
         if digest(wd, protected) != base:
             status = "FAILED_TAMPERED_PROTECTED_FILES"; break
         results = [(c["id"],) + run_cmd(c["cmd"], wd, timeout=spec.get("check_timeout", 300),
-                                        spill_dir=Path(wd) / ".spill")
+                                        spill_dir=Path(wd) / ".spill", sandbox_argv=sandbox_argv)
                    for c in spec["checks"]]
         failed = [r for r in results if r[1] != 0]
         if digest(wd, protected) != base:  # a check command itself tampered with protected files

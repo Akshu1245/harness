@@ -3,6 +3,15 @@
 Running list (his instruction 2026-11-13 10:52pm): gaps the old plan or earlier prompts skipped,
 found by audits / mutation testing / live runs / fresh-env runs, each with proof. Newest first.
 
+## 2026-11-13 11pm - B1 sandboxed checks
+1. **B1 checks ran unsandboxed.** Any check command had full user fs/network. Fixed:
+   rashi/sandbox.py (bwrap profile per the DSH sandbox-local pattern, reimplemented) wired into
+   every check run incl. the new baseline; off by default, spec["sandbox"]/RASHI_SANDBOX=1 enables;
+   missing bwrap warns in the event log, never silent. Verified with REAL bwrap 0.6.1: workdir
+   writable, /etc write blocked, network unreachable. Proof:
+   tests/test_hardening.py::test_sandboxed_check_cannot_touch_outside_workdir (live bwrap),
+   test_sandbox_requested_without_bwrap_warns_not_silent.
+
 ## 2026-11-13 11pm - R9 council
 1. **R9 multi-model debate + vote missing from the package.** The old root scripts
    (run_rashi_council.py, run_architecture_council.py) polled gateways once and dumped JSON -

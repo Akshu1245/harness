@@ -118,3 +118,30 @@ def test_spend_gate_cap_rollover_and_corrupt_file(tmp_path):
     g.check("kenari")  # corrupt state recovers to a fresh day instead of crashing
     data = json.loads((tmp_path / ".spend.json").read_text())
     assert data["calls"] == {"kenari": 1}
+
+
+def test_sandboxed_check_cannot_touch_outside_workdir(tmp_path):
+    """B1 with the real bwrap (skipped without it): a check trying to write outside the
+    workdir fails; the workdir itself stays writable."""
+    import shutil
+    from rashi import sandbox
+    from rashi.loop import run_cmd
+    if not sandbox.available():
+        import pytest; pytest.skip("no bwrap on this machine")
+    argv = sandbox.wrap_argv(str(tmp_path))
+    code, out = run_cmd("touch /etc/rashi-evil", str(tmp_path), sandbox_argv=argv)
+    assert code != 0
+    code, out = run_cmd("touch inside.txt", str(tmp_path), sandbox_argv=argv)
+    assert code == 0 and (tmp_path / "inside.txt").exists()
+
+
+def test_sandbox_requested_without_bwrap_warns_not_silent(tmp_path, monkeypatch):
+    import json as _json
+    from rashi import sandbox
+    from rashi.loop import run_loop
+    monkeypatch.setattr(sandbox, "available", lambda: False)
+    spec = {"goal": "g", "workdir": str(tmp_path), "sandbox": True, "max_iters": 1,
+            "checks": [{"id": "c1", "cmd": "true"}]}
+    assert run_loop(spec, lambda g, f, w: None)[0] == "DONE_VERIFIED"
+    events = [_json.loads(l) for l in (tmp_path / "events.jsonl").read_text().splitlines()]
+    assert any(e.get("kind") == "warn" and "unsandboxed" in e.get("what", "") for e in events)
