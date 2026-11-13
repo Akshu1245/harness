@@ -12,6 +12,8 @@ decision or his hardware. Everything else is in motion under the existing grants
 - One-press build over a fleet of detected agent CLIs; ponytail/no-ai-slop rules locked into prompts and tests.
 - War room serves the real events.jsonl stream; README/docs claim only what exists.
 - DSH front door + Simular box installed and verified (docs/DSH_SETUP.md).
+- War room stall signal: a run that goes quiet shows a red STALLED badge (never looks fine while dead); every LLM call's token usage lands in events.jsonl as data (both from the 2026-11-13 pain-points pass, docs/PAIN_POINTS.md).
+- First live benchmark: 3/3 fixed tasks DONE_VERIFIED on Kenari glm-4-7-flash:free, all iteration 1 (benchmarks/results.jsonl).
 
 ## Ranked next
 
@@ -29,6 +31,10 @@ decision or his hardware. Everything else is in motion under the existing grants
    socksio` is needed there before any OpenAI client can be constructed.
 4. **README quickstart that a stranger can run in 5 minutes.** Proves shippability;
    claims stay limited to what CI and MODELS.md show.
+4b. **User-pain-driven items from docs/PAIN_POINTS.md** (2026-11-13 research pass):
+   stall signal and token-usage events are done; next is a seeded multi-file benchmark
+   task where checks guard the files the task must NOT touch (the "breaks unrelated
+   parts" pain).
 5. **Dogfood: use one_press on a small real feature in this repo.** Proves the loop
    on its own codebase; any crash found is fixed at the root (already happened once:
    the split-fallback bug).

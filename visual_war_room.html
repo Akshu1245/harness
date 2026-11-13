@@ -446,9 +446,18 @@
         if (events.length < seenEvents) { terminalFeed.innerHTML = ""; seenEvents = 0; }  // new run
         events.slice(seenEvents).forEach(renderEvent);
         seenEvents = events.length;
-        streamBadge.className = "text-emerald-400 flex items-center gap-1";
-        streamBadge.innerHTML = '<i class="fa-solid fa-circle text-[6px]"></i> ' +
-          (events.length ? "LIVE (events.jsonl)" : "NO EVENTS YET - run the loop");
+        // A run that goes quiet must LOOK dead, not fine: if the last event is not the
+        // terminal status and nothing new has landed for 120s, say STALLED in red.
+        const last = events[events.length - 1];
+        const silence = last && last.ts ? Math.round(Date.now() / 1000 - last.ts) : 0;
+        if (last && last.kind !== "status" && silence > 120) {
+          streamBadge.className = "text-red-400 flex items-center gap-1";
+          streamBadge.innerHTML = '<i class="fa-solid fa-circle text-[6px]"></i> STALLED - no events for ' + silence + 's';
+        } else {
+          streamBadge.className = "text-emerald-400 flex items-center gap-1";
+          streamBadge.innerHTML = '<i class="fa-solid fa-circle text-[6px]"></i> ' +
+            (events.length ? "LIVE (events.jsonl)" : "NO EVENTS YET - run the loop");
+        }
       } catch (e) {
         streamBadge.className = "text-gray-500 flex items-center gap-1";
         streamBadge.innerHTML = '<i class="fa-solid fa-circle text-[6px]"></i> NOT SERVED - python -m rashi.warroom <workdir>';

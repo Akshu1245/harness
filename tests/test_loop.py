@@ -59,3 +59,17 @@ def test_agent_with_fake_client_applies_files(tmp_path):
     class Cl: chat = type("C", (), {"completions": Comp()})()
     make_agent("apinex", "free/x", "k", client=Cl())("goal", "", str(tmp_path))
     assert (tmp_path / "s.py").read_text() == "VALUE = 1\n"
+
+def test_agent_records_token_usage_event(tmp_path):
+    class Msg: content = "FILE: s.py\n```python\nVALUE = 1\n```"
+    class Ch: message = Msg()
+    class Usage: prompt_tokens = 11; completion_tokens = 7
+    class Resp: choices = [Ch()]; usage = Usage()
+    class Comp:
+        def create(self, **k): return Resp()
+    class Cl: chat = type("C", (), {"completions": Comp()})()
+    make_agent("apinex", "free/x", "k", client=Cl())("goal", "", str(tmp_path))
+    rows = [json.loads(l) for l in (tmp_path / "events.jsonl").read_text().splitlines()]
+    call = [r for r in rows if r["kind"] == "llm_call"]
+    assert call and call[0]["prompt_tokens"] == 11 and call[0]["completion_tokens"] == 7
+    assert call[0]["provider"] == "apinex" and call[0]["model"] == "free/x"

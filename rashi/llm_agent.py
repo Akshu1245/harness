@@ -3,6 +3,8 @@ import json, os, re, tempfile, time
 from pathlib import Path
 from openai import OpenAI
 
+from .loop import emit
+
 # Providers allowed for automatic use. Paid gateway (Coarena) is deliberately absent.
 FREE_BASE_URLS = {
     "apinex": "https://api.apinex.bond/v1",
@@ -88,6 +90,11 @@ def make_agent(provider, model, api_key, protected=(), max_tokens=1500, client=N
             prompt += f"\nFailing checks output:\n{feedback}\n"
         r = client.chat.completions.create(model=model, max_tokens=max_tokens,
             messages=[{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}])
+        u = getattr(r, "usage", None)  # cost is data: every call's tokens land in events.jsonl
+        if u is not None:
+            emit(workdir, "llm_call", provider=provider, model=model,
+                 prompt_tokens=getattr(u, "prompt_tokens", None),
+                 completion_tokens=getattr(u, "completion_tokens", None))
         text = r.choices[0].message.content or ""
         files = parse_files(text)
         if not files:
