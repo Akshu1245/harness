@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from . import egm
 from .loop import changed_since, emit, run_loop, snapshot
+from .memory import recall
 from .repomap import map_dir
 from .router import route
 
@@ -12,7 +13,9 @@ def run_pipeline(goal, workdir, llm, agent, approve, protected=(), laya=None, lo
     Path(workdir).mkdir(parents=True, exist_ok=True)
     role, rec = route(goal, laya=laya, log_path=log_path)
     emit(workdir, "route", role=role, decider=rec["decider"], rules_role=rec["rules_role"])
-    spec, findings, checks = egm.spec_gate(llm, goal, workdir, context=map_dir(workdir))
+    past = recall(workdir)  # R29: what this workdir already learned
+    ctx = map_dir(workdir) + ("\n\nMEMORY FROM EARLIER RUNS:\n" + past if past else "")
+    spec, findings, checks = egm.spec_gate(llm, goal, workdir, context=ctx)
     if not approve(spec, findings):
         return {"status": "SPEC_NOT_APPROVED", "role": role, "findings": findings}
     if not checks:

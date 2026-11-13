@@ -11,6 +11,8 @@ failing than the previous one is undone from the per-step stash in .rashi/rollba
 import hashlib, json, os, subprocess, time
 from pathlib import Path
 
+from . import memory as _memory
+
 
 def run_cmd(cmd, cwd, timeout=300, spill_dir=None, sandbox_argv=None):
     """sandbox_argv: a bwrap prefix (rashi.sandbox.wrap_argv) to run the check inside."""
@@ -214,6 +216,7 @@ def run_loop(spec, agent, state_path=None):
             rolled_back = True
             emit(wd, "rollback", iter=i, regressed=regressed, restored=rb["restored"],
                  deleted=rb["deleted"], unrestorable=rb["unrestorable"])
+            _memory.remember(wd, "rollback", f"iter {i}: rolled back a step that broke {regressed}")
         # Repeat guard (pattern from dsh repeat-tool-reminder): an iteration that changed nothing
         # and failed the same checks as the one before is looping, not working - say so, advisory.
         # Runtime files (state, events, spill, replay tape) are excluded or the tree always changes.
@@ -231,4 +234,6 @@ def run_loop(spec, agent, state_path=None):
                         f"{regressed}. Do not re-apply it; find a different approach.\n" + feedback)
     Path(state_path).write_text(json.dumps({"status": status, "goal": spec["goal"], "log": log}, indent=1))
     emit(wd, "status", status=status, iters=len(log))
+    _memory.remember(wd, "done" if status == "DONE_VERIFIED" else "note",
+                     f"goal '{spec['goal'][:120]}' ended {status} after {len(log)} iters")
     return status, log

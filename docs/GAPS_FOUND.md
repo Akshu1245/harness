@@ -3,6 +3,12 @@
 Running list (his instruction 2026-11-13 10:52pm): gaps the old plan or earlier prompts skipped,
 found by audits / mutation testing / live runs / fresh-env runs, each with proof. Newest first.
 
+## 2026-11-13 11pm - R29 memory
+1. **R29 second brain missing.** Nothing carried learnings between runs. Fixed:
+   rashi/memory.py (append-only .rashi/memory.jsonl; the loop records done/rollback/stall;
+   recall feeds the next brainstorm + spec gate in both build paths; capped, corrupt lines
+   skipped, no LLM summarizing so zero spend). Proof: tests/test_memory.py (4).
+
 ## 2026-11-13 11pm - B1 sandboxed checks
 1. **B1 checks ran unsandboxed.** Any check command had full user fs/network. Fixed:
    rashi/sandbox.py (bwrap profile per the DSH sandbox-local pattern, reimplemented) wired into
