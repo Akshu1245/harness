@@ -1,0 +1,34 @@
+{
+  "run_date_ist": "2026-11-14",
+  "run_time_ist": "07:08",
+  "provider": "kenari",
+  "model": "glm-4-7-flash:free",
+  "goal": "bench_summary.py JSONL summary with caller-owned acceptance",
+  "result": {
+    "status": "FAILED_PLANNING",
+    "mode": "caller_contract",
+    "error_type": "APITimeoutError",
+    "contract_sha256": "c441b86f503681a401f151dd6f4c94a5a485fa7a24fa85c1b7297ae30ee79cea"
+  },
+  "actual_network_requests": 1,
+  "network_wait_seconds": 45.104,
+  "coding_agent_invoked": false,
+  "goal_completed": false,
+  "acceptance_calibration": {
+    "correct_calibration": 0,
+    "empty": 1,
+    "count_success": 1,
+    "one_run_per_task": 1,
+    "missing_fields_accepted": 1,
+    "no_cli": 1
+  },
+  "calibration_not_model_score": true,
+  "errors": [
+    "APITimeoutError"
+  ],
+  "limits": [
+    "Single-workdir library test, not DSH UI or installed CLI proof.",
+    "Live provider failed during planning; no coding output was generated.",
+    "No automatic retry or paid fallback."
+  ]
+}

@@ -184,3 +184,23 @@ def test_checks_can_execute_declared_implementation_after_it_is_built(tmp_path):
 
 def test_declared_outputs_do_not_include_commands_or_traversal():
     assert egm.declared_outputs('# Files\n- `app.py`\n- `../escape.py`\n## Checks\n- `python fake_test.py`')=={'app.py'}
+
+
+def test_reviewer_length_truncation_is_bounded_high_finding(tmp_path):
+    calls=[]
+    def truncated(s,u):
+        calls.append(u)
+        raise egm.IncompleteModelOutput('length')
+    findings=egm.goldfish_review(truncated,'spec',str(tmp_path))
+    assert len(calls)==2 and findings[0]['severity']=='high'
+    assert 'truncated' in findings[0]['evidence']
+
+
+def test_reviewer_recovers_after_explicit_truncation(tmp_path):
+    calls=[]
+    def llm(s,u):
+        calls.append(u)
+        if len(calls)==1:raise egm.IncompleteModelOutput('length')
+        return '{"findings":[]}'
+    assert egm.goldfish_review(llm,'spec',str(tmp_path))==[]
+    assert len(calls)==2

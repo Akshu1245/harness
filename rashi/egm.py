@@ -130,8 +130,12 @@ def _findings_from(llm, system, user):
     """Two-attempt JSON findings call: free-tier models sometimes answer prose; one reminder
     fixes the shape (live run 2026-11-13). Unparsable twice = one high finding, never a crash."""
     for attempt in range(2):
-        raw = llm(system, user if attempt == 0 else
-                  "Your last reply was not parseable. Reply with JSON only, nothing else.\n\n" + user)
+        try:
+            raw = llm(system, user if attempt == 0 else
+                      "Your last reply was empty, incomplete or not parseable. Reply with compact JSON only, nothing else.\n\n" + user)
+        except IncompleteModelOutput:
+            raw = "provider reported truncated reviewer output"
+            continue
         m = re.search(r"\{.*\}", raw, re.S)
         try:
             findings = json.loads(m.group(0))["findings"] if m else None

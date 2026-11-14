@@ -193,3 +193,18 @@ cover scope/check preservation, failure, denial, fixture tampering/missing/symli
 A real free-model trial still stopped in planning on timeout, so no live completion is claimed.
 Default DSH/MCP independent-task builds are unchanged; this is an opt-in correctness path, not
 an automatic proof that generated tests cover arbitrary user intent. See ACCEPTANCE_CONTRACT.md.
+
+
+## Reviewer completeness and bounded follow-up, 2026-11-14 7:10am
+
+Reviewer `finish_reason=length` now receives the same bounded retry treatment as malformed
+review JSON; two truncated replies become a high finding, not an uncaught completeness exception.
+Ordinary network errors are still failures, not silently swallowed. Two regressions cover recovery
+and bounded failure. This does not turn the earlier failed runs into successes.
+
+The one scheduled 7am contract-mode follow-up failed on its first provider request with an
+APITimeoutError (45 seconds). No coding agent ran. The provider key was removed and no new live
+retry was arranged. Before the trial, the independent acceptance script passed a correct
+calibration implementation and rejected five faulty variants. Raw outcome summary is in
+benchmarks/goal-followup-2026-11-14.json; calibration is not a model result. Live goal completion
+remains unproved and blocked by provider timeouts; no whole-product readiness claim.
