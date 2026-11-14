@@ -101,7 +101,7 @@ _RUNNERS = ("python", "python3", "pytest", "sh", "bash", "node", "ruby", "pip")
 _OPS = {"|", "||", "&&", ";", "|&"}
 
 
-def invalid_checks(checks, workdir):
+def invalid_checks(checks, workdir, expected_files=()):
     """Findings for checks that execute files which do not exist. A file token is 'executed' when
     it follows a runner (python/pytest/sh/...) anywhere before a shell operator, or sits in command
     position itself (./run.sh). Creation assertions like `test -f app.py` name no runner, so a
@@ -120,7 +120,7 @@ def invalid_checks(checks, workdir):
             if not (runner_seen or i == 0 or toks[i - 1] in _OPS):
                 continue
             for m in re.findall(r"[\w./-]+\.\w+", tok):
-                if ("/" in m or m.endswith((".py", ".sh", ".js"))) and not (Path(workdir) / m).exists():
+                if ("/" in m or m.endswith((".py", ".sh", ".js"))) and not (Path(workdir) / m).exists() and m not in expected_files:
                     out.append({"severity": "high", "issue": f"check {c['id']} executes missing file {m}",
                                 "evidence": c["cmd"]})
     return out
@@ -175,6 +175,14 @@ def drift_report(spec_text, workdir):
     return {"missing_paths": missing, "drifted": bool(missing)}
 
 
+def declared_outputs(spec):
+    """Only explicitly listed relative output files, not incidental command/path mentions."""
+    match=re.search(r'(?mi)^#{0,6}\s*Files\s*\n(.*?)(?=^#{1,6}\s|\Z)',spec,re.S|re.M)
+    if not match:return set()
+    return {p for p in PATH_RE.findall(match.group(1))
+            if not Path(p).is_absolute() and '..' not in Path(p).parts}
+
+
 def spec_gate(llm, goal, workdir, context="", max_rounds=2):
     """Bounded draft/review/revision. Checks always belong to the returned exact spec.
     An incomplete revision retains the last complete spec and adds a high finding.
@@ -186,16 +194,16 @@ def spec_gate(llm, goal, workdir, context="", max_rounds=2):
     findings=[]
     for round_index in range(max_rounds):
         checks=extract_checks(spec)
-        bad=invalid_checks(checks,workdir)
+        bad=invalid_checks(checks,workdir,declared_outputs(spec))
         findings=goldfish_review(llm,spec,workdir)+bad
         if not any(f.get('severity')=='high' for f in findings):break
         revision=_request_spec(llm,'Revise this spec to resolve the findings. Preserve the goal and return complete compact JSON. '
-                               'Checks may not invoke missing external test scripts.\nSPEC:\n'+spec+'\nFINDINGS:\n'+json.dumps(findings))
+                               'Checks may invoke declared output files after implementation, but not missing external test scripts.\nORIGINAL GOAL:\n'+goal+'\nSPEC:\n'+spec+'\nFINDINGS:\n'+json.dumps(findings))
         if revision is None:
             findings.append({'severity':'high','issue':'revision incomplete after bounded retry; retained previous complete spec',
                              'evidence':'No replacement accepted.'})
             break
         spec=revision
     checks=extract_checks(spec)
-    bad=invalid_checks(checks,workdir)
+    bad=invalid_checks(checks,workdir,declared_outputs(spec))
     return spec,findings+bad,[] if bad else checks

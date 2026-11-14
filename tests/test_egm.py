@@ -171,3 +171,16 @@ def test_explicit_truncation_retries_but_provider_errors_do_not():
     import pytest
     with pytest.raises(RuntimeError,match='quota'):
         egm.draft_spec(lambda s,u:(_ for _ in ()).throw(RuntimeError('quota')),'g')
+
+
+def test_checks_can_execute_declared_implementation_after_it_is_built(tmp_path):
+    def llm(s,u):
+        if s==egm.GOLDFISH_SYS:return '{"findings":[]}'
+        return structured_spec('python -m py_compile out.py')
+    spec,findings,checks=egm.spec_gate(llm,'g',str(tmp_path))
+    assert checks and not findings
+    assert egm.invalid_checks([{'id':'x','cmd':'python missing_test.py'}],str(tmp_path),egm.declared_outputs(spec))
+
+
+def test_declared_outputs_do_not_include_commands_or_traversal():
+    assert egm.declared_outputs('# Files\n- `app.py`\n- `../escape.py`\n## Checks\n- `python fake_test.py`')=={'app.py'}

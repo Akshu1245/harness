@@ -167,3 +167,18 @@ Replay regression fixtures contain only the failing model responses, no credenti
 A fresh live attempt returned complete structured draft/revision, but model-generated checks
 still violated goal/CLI requirements and referenced missing files. The gate refused coding.
 This fixes output completeness, not semantic spec correctness or autonomous goal completion.
+
+
+## Declared-output check correction, 2026-11-14 6:05am
+
+A fresh structured run exposed an old gate bug: it rejected `python -m py_compile app.py`
+because app.py did not exist yet, even when the spec explicitly declared app.py as its output.
+Checks run after implementation. The gate now allows missing files explicitly listed in the
+Files section, but still rejects undeclared missing test scripts, absolute/traversal outputs.
+Two regression tests cover the distinction. Spec revisions also carry the original goal instead
+of relying only on the previous draft, reducing one source of requirement drift.
+
+The live seeded acceptance attempt still drifted from JSONL semantics and omitted the independent
+acceptance script; task splitting also proposed dependent tasks despite independent directories.
+That plan was not approved and no coding agent was run. This is a real semantic-planning gap,
+not evidence that the original goal succeeded. Output-completeness fixes do not establish fidelity.
