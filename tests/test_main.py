@@ -210,3 +210,16 @@ def test_council_refuses_paid_override_before_client_creation():
         m.council_members(env={"OPENROUTER_API_KEY": "k", "RASHI_COUNCIL_MODEL_OPENROUTER": "paid/model"},
                           maker=lambda *args: called.append(args))
     assert called == []
+
+
+def test_planning_client_refuses_length_truncation(monkeypatch):
+    import types
+    import openai
+    from rashi import __main__ as main,egm
+    def create(**kwargs):
+        assert kwargs['max_tokens']==4000
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(finish_reason='length',
+                                        message=types.SimpleNamespace(content='partial'))])
+    monkeypatch.setattr(openai,'OpenAI',lambda **kw:types.SimpleNamespace(chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create))))
+    import pytest
+    with pytest.raises(egm.IncompleteModelOutput):main.make_llm('kenari','glm-4-7-flash:free','fake')('s','u')

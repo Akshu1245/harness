@@ -151,3 +151,19 @@ install succeeded and the installed plugin executed fleet. UI testing exposed a 
 `xdg-user-dir` default-workspace failure; a scoped DSH `documentsDirectory` override now creates
 projects inside the chosen install directory. The actual browser was rechecked after the fix.
 This is not an EXE/APK or a branding pass. Full model-driven UI completion is still pending.
+
+
+## Structured spec correction, 2026-11-14 6am
+
+The first post-reset goal attempt produced truncated/empty markdown and no usable checks.
+Spec generation now requests compact structured JSON, validates required fields and closed
+commands, renders exact commands for human review, and retries incomplete output at most once.
+An incomplete revision retains the previous complete spec with a high finding. Returned checks
+always belong to the returned spec, not a stale hidden earlier set. The planning client rejects
+provider `finish_reason=length` and uses a 4000-token response budget. Complete legacy markdown
+remains accepted for compatibility. No provider-specific structured-response API is assumed.
+
+Replay regression fixtures contain only the failing model responses, no credentials or transcript.
+A fresh live attempt returned complete structured draft/revision, but model-generated checks
+still violated goal/CLI requirements and referenced missing files. The gate refused coding.
+This fixes output completeness, not semantic spec correctness or autonomous goal completion.

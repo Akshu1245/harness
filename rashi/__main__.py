@@ -74,8 +74,11 @@ def make_llm(provider, model, key):
     client = OpenAI(base_url=FREE_BASE_URLS[provider], api_key=key, timeout=90)
 
     def llm(system, user):
-        r = client.chat.completions.create(model=model, max_tokens=2000, messages=[
+        r = client.chat.completions.create(model=model, max_tokens=4000, messages=[
             {"role": "system", "content": system}, {"role": "user", "content": user}])
+        if getattr(r.choices[0], "finish_reason", None) == "length":
+            from .egm import IncompleteModelOutput
+            raise IncompleteModelOutput("model output exceeded token budget; refusing truncated output")
         return r.choices[0].message.content or ""
     return llm
 

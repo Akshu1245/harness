@@ -110,3 +110,64 @@ def test_brainstorm_retries_empty_reply():
         return "" if len(calls) == 1 else "Problem\nx\n"
     brief, _ = egm.brainstorm(llm, "idea")
     assert brief == "Problem\nx\n" and "previous reply was empty" in calls[1]
+
+
+def structured_spec(check='test -f out.py'):
+    return json.dumps({'goal':'make out','constraints':['stdlib'],'files':['out.py'],
+                       'checks':[check],'out_of_scope':['network']})
+
+
+def test_structured_spec_roundtrips_exact_commands():
+    command='python -c "assert 1 == 1"'
+    spec=egm.draft_spec(lambda s,u:structured_spec(command),'g')
+    assert egm.extract_checks(spec)==[{'id':'c1','cmd':command}]
+    assert 'out.py' in spec and 'network' in spec
+
+
+def test_replayed_truncated_and_empty_live_specs_never_yield_checks(tmp_path):
+    from pathlib import Path
+    records=json.loads((Path(__file__).parent/'fixtures/truncated_spec_responses.json').read_text())
+    for response in records:
+        # Reviewer JSON and empty/truncated draft/revision are not complete execution specs.
+        assert egm._complete_spec(response) is None
+        spec,findings,checks=egm.spec_gate(lambda s,u:response,'g',str(tmp_path))
+        assert spec=='' and checks==[] and findings[0]['severity']=='high'
+
+
+def test_invalid_structured_draft_gets_only_one_retry():
+    calls=[]
+    def llm(s,u):
+        calls.append(u)
+        return '{"goal":"cut off' if len(calls)==1 else structured_spec()
+    spec=egm.draft_spec(llm,'g')
+    assert len(calls)==2 and egm.extract_checks(spec)
+
+
+def test_empty_revision_retains_matching_spec_and_high_finding(tmp_path):
+    calls=[]
+    def llm(s,u):
+        calls.append(s)
+        if s==egm.GOLDFISH_SYS:return '{"findings":[{"severity":"high","issue":"review"}]}'
+        return '' if 'Revise' in u else structured_spec()
+    spec,findings,checks=egm.spec_gate(llm,'g',str(tmp_path))
+    assert spec and checks==egm.extract_checks(spec)
+    assert any('revision incomplete' in f['issue'] for f in findings)
+    assert calls.count(egm.ELEPHANT_SYS)==3  # draft + two revision attempts
+
+
+def test_partial_json_and_open_shell_quotes_refused():
+    assert egm._complete_spec('{"goal":"g","checks":["true"]') is None
+    assert egm._complete_spec(structured_spec('python -c "unfinished')) is None
+    assert egm._complete_spec('Checks\n- `true`\n```python\ncut off') is None
+
+
+def test_explicit_truncation_retries_but_provider_errors_do_not():
+    n=[]
+    def llm(s,u):
+        n.append(u)
+        if len(n)==1:raise egm.IncompleteModelOutput('length')
+        return structured_spec()
+    assert egm.draft_spec(llm,'g') and len(n)==2
+    import pytest
+    with pytest.raises(RuntimeError,match='quota'):
+        egm.draft_spec(lambda s,u:(_ for _ in ()).throw(RuntimeError('quota')),'g')
