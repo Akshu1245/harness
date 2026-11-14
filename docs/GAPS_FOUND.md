@@ -182,3 +182,14 @@ The live seeded acceptance attempt still drifted from JSONL semantics and omitte
 acceptance script; task splitting also proposed dependent tasks despite independent directories.
 That plan was not approved and no coding agent was run. This is a real semantic-planning gap,
 not evidence that the original goal succeeded. Output-completeness fixes do not establish fidelity.
+
+## Caller-owned acceptance, 2026-11-14 6:14am
+
+Added explicit `build --acceptance contract.json` / `one_press(acceptance=...)` for whole-goal
+work in one directory. Original goal, exact caller checks and protected fixtures survive model
+rewriting and omitted spec checks; no model decomposition can split dependencies in this mode.
+Review includes the immutable contract and protected-file digest. Eight offline regressions
+cover scope/check preservation, failure, denial, fixture tampering/missing/symlink and provider errors.
+A real free-model trial still stopped in planning on timeout, so no live completion is claimed.
+Default DSH/MCP independent-task builds are unchanged; this is an opt-in correctness path, not
+an automatic proof that generated tests cover arbitrary user intent. See ACCEPTANCE_CONTRACT.md.

@@ -56,22 +56,25 @@ def split_tasks(llm, spec_text, fallback_checks):
 
 
 def one_press(goal, base_dir, llm, approve, agents=None, fleet_results=None, max_iters=6,
-              research=None):
+              research=None, acceptance=None):
     from .tracing import span
     Path(base_dir).mkdir(parents=True, exist_ok=True)
     with span(base_dir, "one_press", goal=goal[:80]):
         return _one_press(goal, base_dir, llm, approve, agents=agents,
-                          fleet_results=fleet_results, max_iters=max_iters, research=research)
+                          fleet_results=fleet_results, max_iters=max_iters, research=research, acceptance=acceptance)
 
 
 def _one_press(goal, base_dir, llm, approve, agents=None, fleet_results=None, max_iters=6,
-               research=None):
+               research=None, acceptance=None):
     """research: optional callable topic -> context text (e.g. research.as_context(oss_alternatives(..)));
     its findings are prepended to the brainstorm context (his rule: reuse OSS before building)."""
     """The full flow. agents/fleet_results injectable; real run uses fleet.detect_all()."""
     fleet_results = detect_all() if fleet_results is None and agents is None else (fleet_results or {})
     agents = agents if agents is not None else ready_agents(fleet_results)
     Path(base_dir).mkdir(parents=True, exist_ok=True)
+    if acceptance is not None:
+        from .contract import build as contract_build
+        return contract_build(goal,base_dir,llm,approve,agents,acceptance,max_iters=max_iters)
     repo_map = map_dir(base_dir)  # B3: the elephant drafts against what actually exists
     if research is not None:
         found = research(goal)  # R28: existing OSS first; failures are stated, never hidden

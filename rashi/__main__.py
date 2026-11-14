@@ -93,6 +93,7 @@ def main(argv=None):
     b.add_argument("goal")
     b.add_argument("dir")
     b.add_argument("--yes", action="store_true", help="approve the spec without prompting")
+    b.add_argument("--acceptance", help="caller-owned JSON checks/protected fixtures; single-workdir execution, no model splitting")
     b.add_argument("--answers", help="file with answers to the `rashi ask` intake batch")
     b.add_argument("--model", help="override the model; a paid model needs RASHI_ALLOW_PAID=1")
     b.add_argument("--research", action="store_true",
@@ -248,7 +249,8 @@ def main(argv=None):
     if getattr(args, "research", False):  # R28: OSS alternatives feed the brief; failures stated
         from .research import as_context, oss_alternatives
         research_fn = lambda topic: as_context(oss_alternatives(topic))
-    result = one_press(goal, args.dir, llm, approve, research=research_fn)
+    acceptance = json.loads(Path(args.acceptance).read_text()) if args.acceptance else None
+    result = one_press(goal, args.dir, llm, approve, research=research_fn, acceptance=acceptance)
     print(result)
     return 0 if result["status"] == "DONE_VERIFIED" else 1
 
