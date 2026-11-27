@@ -1,6 +1,7 @@
 """Factory mode: code-defined closed loop with local git versioning and agent review.
 All offline: fake agents and fake reviewers, temp dirs only."""
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -154,6 +155,55 @@ def test_cli_reviewer_parsing(tmp_path):
     missing = factory.make_cli_reviewer(["/nonexistent-reviewer-binary"], wd)
     ok, notes = missing("goal", "")
     assert ok is False and "unavailable" in notes
+
+
+def test_cli_validate_only_needs_no_key(tmp_path, capsys, monkeypatch):
+    monkeypatch.delenv("KENARI_API_KEY", raising=False)
+    from rashi.__main__ import main
+    rc = main(["factory", str(make_defn(tmp_path)), str(tmp_path / "w")])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "sha256" in out and "definition valid" in out
+
+
+def fake_codex(tmp_path, monkeypatch):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake = bin_dir / "codex"
+    fake.write_text("#!/bin/sh\necho hello > out.txt\n")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bin_dir) + os.pathsep + os.environ.get("PATH", ""))
+
+
+def test_cli_end_to_end_with_agent_and_reviewer(tmp_path, monkeypatch, capsys):
+    fake_codex(tmp_path, monkeypatch)
+    from rashi.__main__ import main
+    path = make_defn(tmp_path, review=True)
+    rc = main(["factory", str(path), str(tmp_path / "w"), "--agent", "codex",
+               "--reviewer", "cat >/dev/null; echo ACCEPT", "--yes"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert '"status": "DONE_VERIFIED"' in out
+
+
+def test_cli_review_rejection_exits_nonzero(tmp_path, monkeypatch, capsys):
+    fake_codex(tmp_path, monkeypatch)
+    from rashi.__main__ import main
+    path = make_defn(tmp_path, review=True, max_iters=2)
+    rc = main(["factory", str(path), str(tmp_path / "w"), "--agent", "codex",
+               "--reviewer", "cat >/dev/null; echo 'REJECT: no tests added'", "--yes"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert '"status": "FAILED_REVIEW"' in out
+
+
+def test_cli_rejects_bad_definition(tmp_path, capsys):
+    from rashi.__main__ import main
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({"goal": "g"}))
+    rc = main(["factory", str(bad), str(tmp_path / "w")])
+    assert rc == 2
+    assert "rejected" in capsys.readouterr().out
 
 
 def test_definition_hash_stable(tmp_path):
