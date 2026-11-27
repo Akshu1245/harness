@@ -10,12 +10,19 @@ agent reviewer gates completion. Each iteration of the closed loop:
   review   - optional: a reviewer agent reads the committed diff and ACCEPTs or REJECTs
   feedback - failing check output or the review rejection goes back to the coding agent
 
-DONE_VERIFIED only when every check exits 0 and the reviewer (if configured) accepts.
-Anything else is an honest FAILED_*/STOPPED_* status. Commits never leave the machine:
-the factory runs no push and touches no remote. These are cooperative checks, not
-containment against hostile processes.
+DONE_VERIFIED only when every check exits 0 and the reviewer (if configured) accepts and
+every declared artifact exists. Anything else is an honest FAILED_*/STOPPED_* status.
+Commits never leave the machine: the factory runs no push and touches no remote. These
+are cooperative checks, not containment against hostile processes.
+
+artifacts: the definition may declare previewable outputs (an HTML app, a doc) the run
+must produce, the artifacts-style deliverable. A DONE loop missing one reports
+FAILED_ARTIFACT_MISSING instead. `rashi preview DIR` serves the workdir on 127.0.0.1 so
+the artifact opens like a real page; nothing is uploaded or shared.
 """
+import functools
 import hashlib
+import http.server
 import json
 import subprocess
 from pathlib import Path
@@ -53,10 +60,18 @@ def load(path, workdir):
     review = defn.get("review", False)
     if not isinstance(review, bool):
         raise FactoryError("review must be a boolean")
+    artifacts = defn.get("artifacts", [])
+    if (not isinstance(artifacts, list) or
+            any(not isinstance(a, str) or not a.strip() for a in artifacts)):
+        raise FactoryError("artifacts must be a list of relative paths")
+    for rel in artifacts:
+        path = Path(rel)
+        if path.is_absolute() or ".." in path.parts:
+            raise FactoryError("unsafe artifact path")
     git = defn.get("git", True)
     if not (isinstance(git, bool) or git == "init"):
         raise FactoryError('git must be true, false or "init"')
-    out = {"goal": goal, **core, "review": review, "git": git,
+    out = {"goal": goal, **core, "review": review, "git": git, "artifacts": artifacts,
            "max_iters": defn.get("max_iters", 6), "max_seconds": defn.get("max_seconds", 900)}
     for key in ("max_iters", "max_seconds"):
         value = out[key]
@@ -172,7 +187,52 @@ def run_factory(defn, workdir, agent, review=None):
         agent = CliAgent(agent)
     status, log = run_loop(spec, agent)
     result = {"status": status, "mode": "factory", "definition_sha256": dh,
-              "git": bool(repo), "iterations": len(log)}
+              "git": bool(repo), "iterations": len(log), "artifacts": defn["artifacts"]}
+    if status == "DONE_VERIFIED" and defn["artifacts"]:
+        # The artifacts gate: declared deliverables must exist and be plain files.
+        missing = [rel for rel in defn["artifacts"]
+                   if (workdir / rel).is_symlink() or not (workdir / rel).is_file()]
+        if missing:
+            result["status"] = "FAILED_ARTIFACT_MISSING"
+            result["missing_artifacts"] = missing
+            emit(workdir, "status", status="FAILED_ARTIFACT_MISSING", iters=len(log),
+                 missing=missing)
     if log:
         result["last"] = log[-1]
     return result
+
+
+def serve_preview(workdir, port=8766, host="127.0.0.1"):
+    """Local-only static preview of what the factory produced. Loop bookkeeping files are
+    visible too; it serves the caller's own workdir on their own machine and nothing leaves it."""
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(workdir))
+    return http.server.ThreadingHTTPServer((host, port), handler)
+
+
+STREAMLIT_ENTRY = "app.py"
+
+
+def preview_kind(workdir):
+    """A workdir with app.py is a live Streamlit app artifact (the Apache-2.0 framework
+    E2B's artifacts clone uses for app output), not a static page."""
+    if (Path(workdir) / STREAMLIT_ENTRY).is_file():
+        return "streamlit"
+    return "static"
+
+
+def streamlit_preview(workdir, port=8766, host="127.0.0.1"):
+    """Run the app.py artifact as a real local Streamlit app. Returns the Popen handle.
+    Honest when the runtime is missing: no silent fallback to a static file."""
+    entry = Path(workdir) / STREAMLIT_ENTRY
+    if not entry.is_file():
+        raise FactoryError(f"no {STREAMLIT_ENTRY} in {workdir}")
+    try:
+        import streamlit  # noqa: F401
+    except ImportError:
+        raise FactoryError("the artifact is a Streamlit app but streamlit is not installed "
+                           "(pip install streamlit; Apache-2.0)")
+    import sys
+    return subprocess.Popen([sys.executable, "-m", "streamlit", "run", str(entry),
+                             "--server.port", str(port), "--server.address", host,
+                             "--server.headless", "true", "--browser.gatherUsageStats", "false"],
+                            cwd=workdir)

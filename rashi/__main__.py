@@ -104,6 +104,9 @@ def main(argv=None):
     f.add_argument("--agent", help="installed agent CLI name (see rashi fleet); omit to only validate")
     f.add_argument("--reviewer", help="shell command: goal+committed diff on stdin, prints ACCEPT or REJECT: why")
     f.add_argument("--yes", action="store_true", help="run without the interactive confirmation")
+    p = sub.add_parser("preview", help="serve a workdir's artifacts on 127.0.0.1 for local preview")
+    p.add_argument("dir")
+    p.add_argument("port", type=int, nargs="?", default=8766)
     w = sub.add_parser("warroom", help="serve the event-stream UI for a run directory")
     w.add_argument("dir")
     w.add_argument("port", type=int, nargs="?", default=8765)
@@ -180,6 +183,23 @@ def main(argv=None):
         r = drift_report(Path(args.spec).read_text(), args.dir)
         print(json.dumps(r, indent=2))
         return 1 if r["drifted"] else 0
+    if args.cmd == "preview":
+        from . import factory as factory_mod
+        if factory_mod.preview_kind(args.dir) == "streamlit":
+            try:
+                proc = factory_mod.streamlit_preview(args.dir, args.port)
+            except factory_mod.FactoryError as ex:
+                print(ex)
+                return 2
+            print(f"preview (live Streamlit app) on http://127.0.0.1:{args.port}/  (Ctrl-C to stop)")
+            try:
+                proc.wait()
+            except KeyboardInterrupt:
+                proc.terminate()
+            return 0
+        print(f"preview on http://127.0.0.1:{args.port}/  (serving {args.dir}; Ctrl-C to stop)")
+        factory_mod.serve_preview(args.dir, args.port).serve_forever()
+        return 0
     if args.cmd == "warroom":
         from .warroom import serve
         print(f"war room on http://127.0.0.1:{args.port}/  (events: {args.dir}/events.jsonl)")
@@ -212,6 +232,9 @@ def main(argv=None):
                   if args.reviewer else None)
         result = factory_mod.run_factory(defn, args.dir, agent, review=review)
         print(json.dumps(result, indent=1))
+        if result["status"] == "DONE_VERIFIED" and result.get("artifacts"):
+            print("artifacts:", ", ".join(result["artifacts"]))
+            print(f"preview them with: rashi preview {args.dir}")
         return 0 if result["status"] == "DONE_VERIFIED" else 1
     # ask / build / bench
     found = find_llm()
