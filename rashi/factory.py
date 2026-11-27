@@ -203,7 +203,36 @@ def run_factory(defn, workdir, agent, review=None):
 
 
 def serve_preview(workdir, port=8766, host="127.0.0.1"):
-    """Local-only preview of what the factory produced. Loop bookkeeping files are visible
-    too; it serves the caller's own workdir on their own machine and nothing leaves it."""
+    """Local-only static preview of what the factory produced. Loop bookkeeping files are
+    visible too; it serves the caller's own workdir on their own machine and nothing leaves it."""
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(workdir))
     return http.server.ThreadingHTTPServer((host, port), handler)
+
+
+STREAMLIT_ENTRY = "app.py"
+
+
+def preview_kind(workdir):
+    """A workdir with app.py is a live Streamlit app artifact (the Apache-2.0 framework
+    E2B's artifacts clone uses for app output), not a static page."""
+    if (Path(workdir) / STREAMLIT_ENTRY).is_file():
+        return "streamlit"
+    return "static"
+
+
+def streamlit_preview(workdir, port=8766, host="127.0.0.1"):
+    """Run the app.py artifact as a real local Streamlit app. Returns the Popen handle.
+    Honest when the runtime is missing: no silent fallback to a static file."""
+    entry = Path(workdir) / STREAMLIT_ENTRY
+    if not entry.is_file():
+        raise FactoryError(f"no {STREAMLIT_ENTRY} in {workdir}")
+    try:
+        import streamlit  # noqa: F401
+    except ImportError:
+        raise FactoryError("the artifact is a Streamlit app but streamlit is not installed "
+                           "(pip install streamlit; Apache-2.0)")
+    import sys
+    return subprocess.Popen([sys.executable, "-m", "streamlit", "run", str(entry),
+                             "--server.port", str(port), "--server.address", host,
+                             "--server.headless", "true", "--browser.gatherUsageStats", "false"],
+                            cwd=workdir)

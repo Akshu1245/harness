@@ -263,6 +263,41 @@ def test_preview_serves_the_artifact(tmp_path):
         server.server_close()
 
 
+def test_preview_kind_detects_streamlit_app(tmp_path):
+    assert factory.preview_kind(tmp_path) == "static"
+    (tmp_path / "app.py").write_text("import streamlit as st")
+    assert factory.preview_kind(tmp_path) == "streamlit"
+
+
+def test_streamlit_preview_missing_entry(tmp_path):
+    with pytest.raises(FactoryError):
+        factory.streamlit_preview(tmp_path, port=9999)
+
+
+def test_streamlit_preview_serves_a_real_app(tmp_path):
+    pytest.importorskip("streamlit")
+    import socket, time, urllib.request
+    (tmp_path / "app.py").write_text(
+        "import streamlit as st\nst.title('factory real app')\n")
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    proc = factory.streamlit_preview(tmp_path, port=port)
+    try:
+        body = None
+        for _ in range(60):
+            try:
+                body = urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=2).read()
+                break
+            except OSError:
+                time.sleep(0.5)
+        assert body is not None and b"streamlit" in body.lower()
+    finally:
+        proc.terminate()
+        proc.wait(timeout=15)
+
+
 def test_definition_hash_stable(tmp_path):
     defn = factory.load(make_defn(tmp_path), tmp_path / "w")
     assert factory.definition_hash(defn) == factory.definition_hash(dict(defn))

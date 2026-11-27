@@ -184,9 +184,21 @@ def main(argv=None):
         print(json.dumps(r, indent=2))
         return 1 if r["drifted"] else 0
     if args.cmd == "preview":
-        from .factory import serve_preview
+        from . import factory as factory_mod
+        if factory_mod.preview_kind(args.dir) == "streamlit":
+            try:
+                proc = factory_mod.streamlit_preview(args.dir, args.port)
+            except factory_mod.FactoryError as ex:
+                print(ex)
+                return 2
+            print(f"preview (live Streamlit app) on http://127.0.0.1:{args.port}/  (Ctrl-C to stop)")
+            try:
+                proc.wait()
+            except KeyboardInterrupt:
+                proc.terminate()
+            return 0
         print(f"preview on http://127.0.0.1:{args.port}/  (serving {args.dir}; Ctrl-C to stop)")
-        serve_preview(args.dir, args.port).serve_forever()
+        factory_mod.serve_preview(args.dir, args.port).serve_forever()
         return 0
     if args.cmd == "warroom":
         from .warroom import serve
