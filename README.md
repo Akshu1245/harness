@@ -5,6 +5,7 @@ Experimental multi-model coding harness. Status: **early prototype**. This READM
 ## What works now (tested, see `tests/`)
 - `rashi/loop.py`: a verified loop. A task is DONE only when its check commands exit 0. The model's own claim of "done" is ignored. Protected files (specs, tests) are hash-checked every iteration and after the checks run; changing them fails the run. State is written to `PROGRESS.json`; an unfinished run can resume only when goal/checks/protected-path identity and protected content match, with retained failure feedback. A regression can restore modified/deleted files and remove additions from a bounded per-step stash. Incomplete recovery stops; rollback rejects symlink paths, but is not race-proof against hostile concurrent processes. Stops on max iterations or time. Every run writes what happened (done/rollback/stall) to `.rashi/memory.jsonl` and the next brainstorm/spec in that workdir reads it back as context. Checks can run sandboxed (bwrap: read-only system, writable workdir, no network) with `sandbox: True` or RASHI_SANDBOX=1.
 - `rashi/fleet.py` + `rashi/orchestrate.py` + `rashi/build.py`: detects installed agent CLIs (Codex, Claude Code, OpenCode, Aider, Factory Droid, Gemini), tests readiness and prints fixes, then one press (`build.one_press`) specs, splits, and distributes tasks across ready agents - each task verified by the loop in its own subdirectory. See `docs/ORCHESTRATION.md`.
+- `rashi/factory.py` (`rashi factory factory.json DIR`): software-factory mode. A factory.json is the code-defined loop: goal, acceptance checks, protected fixtures, bounds, git mode, optional agent review. Each iteration the coding agent writes, check exit codes decide, the tree is committed to local git, and an optional reviewer agent reads the committed diff and ACCEPTs or REJECTs (a rejection goes back to the coding agent as feedback). DONE_VERIFIED only when every check exits 0 and the reviewer accepts; otherwise an honest FAILED_*/STOPPED_* status. Local only: no push, no merge, no provider key needed. Tested offline with scripted agents and reviewers; a live factory run with a real coding CLI is still unverified.
 - `rashi/rules.py`: the ponytail (smallest complete change) and no-ai-slop rules, always consulted by the planner/coder/reviewer prompts.
 - `rashi/llm_agent.py`: edit step through any OpenAI-compatible gateway. Free-tier gateways only by default; a paid model on your own key is an explicit opt-in (`RASHI_ALLOW_PAID=1` / `allow_paid=True`), refused otherwise. Writes are confined to the work directory and cannot touch protected paths.
 - `rashi/intake.py` (`rashi ask "idea"`): paste an idea refined elsewhere, get ALL clarifying questions in one numbered multiple-choice batch; answer inline (`--answers`) or copy the batch into your own AI and bring answers back.
@@ -13,6 +14,12 @@ Experimental multi-model coding harness. Status: **early prototype**. This READM
 - `autonomous_loop_engine.py`: the older two-stage build + cross-review demo. Its approval gate now fails closed (error or missing field = not approved) and empty/refusal output is rejected.
 - `rashi_cloud_runner.py`: cloud browser worker. Needs a bearer token, binds to localhost, and only fetches public http(s) URLs.
 - `rakshex-core/`: Rust prototype of a daily spend breaker and model catalog. **The breaker is not connected to anything yet** and the websocket telemetry is demo data.
+
+### A real factory run
+
+![War room on a real factory run: the reviewer accepted iteration 1 and the loop ended DONE_VERIFIED](docs/screenshots/factory-warroom.png)
+
+The war room event stream of a real `rashi factory factory.json . --agent codex --reviewer ... --yes` run: definition hash recorded, checks passed, the reviewer accepted the committed diff, status DONE_VERIFIED. [The artifact the run produced.](docs/screenshots/factory-artifact.png) The coding agent in this capture is a scripted stand-in CLI; a live model-driven factory run is still unverified.
 
 ## Still partial or not built
 
@@ -45,6 +52,7 @@ python -m rashi fleet            # which agent CLIs are installed and ready
 python -m rashi build "build X" workdir   # one press: spec -> approve -> distribute -> verify
 python -m rashi warroom workdir  # live event stream UI on http://127.0.0.1:8765
 python -m rashi drift spec.md workdir   # spec-vs-code drift report, no key needed
+python -m rashi factory factory.json dir  # code-defined loop: write, check, commit, review, feedback
 ```
 `build` needs one free provider key in the environment (KENARI_API_KEY first) for spec drafting; the coding is done by the CLI agents `fleet` found ready.
 
@@ -53,6 +61,9 @@ Copy `.env.example` to `.env` and fill it. Never commit keys; `tests/test_phase0
 
 ## Models
 Model IDs differ per gateway; list them with the gateway's `/v1/models` before use. Some IDs in older scripts (for example `...:free` suffixes) did not match the gateway lists on 2026-11-12. Manual live probes (including the ones that call paid endpoints) live in `probes/`; paid probes refuse to run unless `RASHI_ALLOW_PAID_PROBES=1`.
+
+## Team
+Built by the RaksHex team. Names and roles to be confirmed.
 
 ## License
 MIT. See `LICENSE`.

@@ -98,6 +98,12 @@ def main(argv=None):
     b.add_argument("--model", help="override the model; a paid model needs RASHI_ALLOW_PAID=1")
     b.add_argument("--research", action="store_true",
                    help="search for existing OSS first and feed findings into the brief")
+    f = sub.add_parser("factory", help="code-defined closed loop: write, check, commit locally, agent review, feedback")
+    f.add_argument("definition", help="factory.json: goal, checks, protected, bounds, review, git")
+    f.add_argument("dir")
+    f.add_argument("--agent", help="installed agent CLI name (see rashi fleet); omit to only validate")
+    f.add_argument("--reviewer", help="shell command: goal+committed diff on stdin, prints ACCEPT or REJECT: why")
+    f.add_argument("--yes", action="store_true", help="run without the interactive confirmation")
     w = sub.add_parser("warroom", help="serve the event-stream UI for a run directory")
     w.add_argument("dir")
     w.add_argument("port", type=int, nargs="?", default=8765)
@@ -179,6 +185,34 @@ def main(argv=None):
         print(f"war room on http://127.0.0.1:{args.port}/  (events: {args.dir}/events.jsonl)")
         serve(args.dir, args.port).serve_forever()
         return 0
+    if args.cmd == "factory":  # no provider key needed: the loop runs local CLIs and shell checks
+        from . import factory as factory_mod
+        from .orchestrate import CliAgent
+        try:
+            defn = factory_mod.load(args.definition, args.dir)
+        except factory_mod.FactoryError as ex:
+            print("factory definition rejected:", ex)
+            return 2
+        print("Factory definition:", args.definition)
+        print("  sha256:", factory_mod.definition_hash(defn))
+        print("  goal:", defn["goal"][:200])
+        print("  checks:", len(defn["checks"]), " protected:", defn["protected"],
+              " review:", defn["review"], " git:", defn["git"],
+              " max_iters:", defn["max_iters"])
+        if not args.agent:
+            print("definition valid; pass --agent to run it")
+            return 0
+        print("Warning: the coding agent runs with your host permissions; checks are not a security sandbox.")
+        print("Commits stay local; nothing is pushed or merged.")
+        if not args.yes and input("Run the factory? [y/N] ").strip().lower() != "y":
+            print("not approved")
+            return 1
+        agent = CliAgent.for_cli(args.agent)
+        review = (factory_mod.make_cli_reviewer(["sh", "-c", args.reviewer], args.dir)
+                  if args.reviewer else None)
+        result = factory_mod.run_factory(defn, args.dir, agent, review=review)
+        print(json.dumps(result, indent=1))
+        return 0 if result["status"] == "DONE_VERIFIED" else 1
     # ask / build / bench
     found = find_llm()
     if not found:
