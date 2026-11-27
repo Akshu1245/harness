@@ -131,7 +131,8 @@ def make_cli_reviewer(argv, workdir, timeout=300):
             return False, f"reviewer failed (exit {p.returncode}): {(p.stderr or '')[-200:]}"
         head, _, rest = text.partition("\n")
         if head.upper().startswith("ACCEPT"):
-            return True, (rest.strip() or "accepted")[:600]
+            inline = head[6:].lstrip(" :")
+            return True, ((inline + "\n" + rest).strip() or "accepted")[:600]
         if head.upper().startswith("REJECT"):
             return False, (head[6:].lstrip(" :") + "\n" + rest).strip()[:600]
         return False, "unparseable reviewer reply (want ACCEPT or REJECT): " + text[:200]
