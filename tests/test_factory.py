@@ -206,6 +206,63 @@ def test_cli_rejects_bad_definition(tmp_path, capsys):
     assert "rejected" in capsys.readouterr().out
 
 
+def test_artifacts_gate_missing_deliverable(tmp_path):
+    path = make_defn(tmp_path, artifacts=["index.html", "report.md"])
+    def agent(goal, feedback, workdir):
+        (Path(workdir) / "out.txt").write_text("hello")
+        (Path(workdir) / "index.html").write_text("hello")
+    result = factory.run_factory(path, tmp_path / "w", agent)
+    assert result["status"] == "FAILED_ARTIFACT_MISSING"
+    assert result["missing_artifacts"] == ["report.md"]
+
+
+def test_artifacts_gate_passes_and_lists(tmp_path):
+    path = make_defn(tmp_path, artifacts=["out.txt"])
+    result = factory.run_factory(path, tmp_path / "w", agent_writes("hello"))
+    assert result["status"] == "DONE_VERIFIED"
+    assert result["artifacts"] == ["out.txt"]
+
+
+def test_artifact_path_validation(tmp_path):
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps({"goal": "g", "checks": [{"id": "x", "cmd": "true"}],
+                                "artifacts": ["../escape"]}))
+    with pytest.raises(FactoryError):
+        factory.load(path, tmp_path)
+
+
+def test_artifact_symlink_counts_missing(tmp_path):
+    wd = tmp_path / "w"
+    wd.mkdir()
+    outside = tmp_path / "secret.txt"
+    outside.write_text("hello")
+    defn = {"goal": "g", "checks": [{"id": "out", "cmd": "grep -q hello out.txt"}],
+            "git": "init", "artifacts": ["out.txt"], "max_iters": 2}
+    path = tmp_path / "factory.json"
+    path.write_text(json.dumps(defn))
+    def agent(goal, feedback, workdir):
+        (Path(workdir) / "out.txt").symlink_to(outside)  # a link is not a produced artifact
+    result = factory.run_factory(path, wd, agent)
+    assert result["status"] == "FAILED_ARTIFACT_MISSING"
+
+
+def test_preview_serves_the_artifact(tmp_path):
+    wd = tmp_path / "w"
+    wd.mkdir()
+    (wd / "index.html").write_text("<h1>real artifact</h1>")
+    server = factory.serve_preview(wd, port=0)
+    import threading, urllib.request
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_address[1]}/index.html"
+        body = urllib.request.urlopen(url, timeout=5).read().decode()
+        assert "real artifact" in body
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_definition_hash_stable(tmp_path):
     defn = factory.load(make_defn(tmp_path), tmp_path / "w")
     assert factory.definition_hash(defn) == factory.definition_hash(dict(defn))
