@@ -4,6 +4,14 @@ spec (dict or JSON file):
   goal, checks:[{id,cmd}], protected:[paths], max_iters, max_seconds, workdir
 An `agent` is any callable agent(goal, feedback, workdir) -> None that edits files.
 
+Optional factory hooks (rashi/factory.py wires them; both default off):
+  git_commit: callable(iter_no, failed_ids) called once per iteration after the rollback
+    decision, when the tree is final; it versions the iteration (local commits only).
+    An exception stops the run as FAILED_GIT_COMMIT - the audit trail is part of the deal.
+  review: callable(goal, feedback) -> (accepted, notes), run only when every check exits 0.
+    Rejection turns the iteration into a failure with the notes as feedback; ending the
+    run on a rejection reports FAILED_REVIEW, never DONE_VERIFIED.
+
 Resume (B6): a PROGRESS.json with the same goal and an unfinished status continues where it
 stopped (spec["resume"]=False disables). Rollback (B5): an iteration that leaves MORE checks
 failing than the previous one is undone from the per-step stash in .rashi/rollback/ and logged.
@@ -195,6 +203,8 @@ def run_loop(spec, agent, state_path=None):
     identity = hashlib.sha256(json.dumps({"goal":spec["goal"],"checks":checks,
                                         "protected":spec.get("protected",[])},sort_keys=True).encode()).hexdigest()
     feedback = ""
+    git_commit = spec.get("git_commit")
+    review_step = spec.get("review")
     protected_start = digest(wd,spec.get("protected",[]))
     if spec.get("resume", True) and Path(state_path).is_file():
         try:
@@ -283,8 +293,6 @@ def run_loop(spec, agent, state_path=None):
         log.append({"iter": i, "failed": [r[0] for r in failed], "agent_error": err})
         emit(wd, "iter", iter=i, failed=[r[0] for r in failed], agent_error=err)
         save_state("RUNNING")
-        if not failed:
-            status = "DONE_VERIFIED"; break
         # Regression rollback (B5): a check that passed before this agent step and fails now means
         # the step made things worse - undo it and keep working from the last better tree.
         rolled_back = False
@@ -308,14 +316,40 @@ def run_loop(spec, agent, state_path=None):
         now = {rel:sha for rel,sha in snapshot(wd).items()
                if rel not in ("PROGRESS.json","events.jsonl",".replay.jsonl")}
         eff_failed = prev_failed if rolled_back else failed
-        if eff_failed == prev_failed and now == prev_tree:
+        if eff_failed and eff_failed == prev_failed and now == prev_tree:
             emit(wd, "warn", what="no progress: same failures, no file changes", iter=i)
         prev_failed, prev_tree = eff_failed, now
+        if git_commit is not None:  # version the final tree of this iteration (local only)
+            try:
+                git_commit(i, [r[0] for r in failed])
+            except Exception as ex:
+                log[-1]["git_error"] = f"{type(ex).__name__}: {str(ex)[:160]}"
+                emit(wd, "status", status="FAILED_GIT_COMMIT", iters=len(log), error=log[-1]["git_error"])
+                status = "FAILED_GIT_COMMIT"; break
+        if not failed:
+            if review_step is not None:  # an agent reviews the committed work before DONE
+                try:
+                    accepted, notes = review_step(spec["goal"], feedback)
+                    accepted, notes = bool(accepted), str(notes)[:600]
+                except Exception as ex:
+                    accepted, notes = False, f"review error: {type(ex).__name__}: {str(ex)[:160]}"
+                log[-1]["review"] = "accepted" if accepted else "rejected"
+                log[-1]["review_notes"] = notes
+                emit(wd, "review", iter=i, accepted=accepted, notes=notes[:400])
+                if not accepted:
+                    feedback = ("Checks passed but the reviewer REJECTED this iteration:\n" + notes +
+                                "\nAddress the review without breaking the checks.")
+                    save_state("RUNNING")
+                    continue
+            status = "DONE_VERIFIED"; break
         feedback = "\n".join(f"{r[0]} exit {r[1]}: {r[2]}" for r in failed)
         if rolled_back:
             feedback = (f"Your last change was ROLLED BACK: it broke previously-passing checks "
                         f"{regressed}. Do not re-apply it; find a different approach.\n" + feedback)
         save_state("RUNNING")
+    if (status in ("STOPPED_MAX_ITERS", "STOPPED_TIME") and review_step is not None
+            and log and log[-1].get("review") == "rejected"):
+        status = "FAILED_REVIEW"  # checks passed but the reviewer never accepted: not DONE
     save_state(status)
     emit(wd, "status", status=status, iters=len(log))
     _memory.remember(wd, "done" if status == "DONE_VERIFIED" else "note",
